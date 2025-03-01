@@ -4,7 +4,6 @@ const canvas = document.getElementById('canvas');
 canvas.width = WIDTH;
 canvas.height = HEIGHT;
 const draw = canvas.getContext('2d');
-
 function draw_component(players){
     draw.clearRect(0, 0, WIDTH, HEIGHT);
 
@@ -12,20 +11,29 @@ function draw_component(players){
 
     players.forEach(player => {
         let tank = Object.values(player)[0];
+        
         draw.save(); //save state
         //i have to translate the object i want to draw to the origin and then back
         draw.translate(tank.x + tank.height/2, tank.y + tank.width/2);
         draw.rotate(tank.angle); //rotate canvas
-        draw.fillRect(-tank.height/2, -tank.width/2, tank.height, tank.width); //draw object
+
+        //draw tank
+        draw.fillRect(-tank.height/2, -tank.width/2, tank.height, tank.width);
         draw.fillRect(-tank.height/2, -tank.width/2 + tank.width * 0.35, tank.height*1.3, tank.width * 0.3);
+
         draw.restore(); //restore to previous
+
+        //draw bullet
+        draw.fillRect(tank.bullet.x, tank.bullet.y, tank.bullet.size, tank.bullet.size);
     });
 }
+
 let direction = {
     left: false,
     right: false,
     forwards: false,
-    backwards: false
+    backwards: false,
+    shoot: false
 }
 
 const socket = io({
@@ -46,10 +54,10 @@ socket.on("connect", () => {
 });
 socket.on('new_connection', (players)=>{
     draw_component(players);
-})
+});
 socket.on('update', (players)=>{
     draw_component(players);
-})
+});
 socket.on("disconnect", () => {
     console.log('disconnected');
 });
@@ -71,12 +79,17 @@ window.addEventListener('keydown', (event)=>{
         direction.right = true;
         direction.left = false;
     }
+    if (event.key == 'q' || event.key == 'f') {
+        direction.shoot = true;
+    }
+
 });
 window.addEventListener('keyup', (event)=>{
     if (event.key == 'w' || event.key == 'W') direction.forwards = false;    
     if (event.key == 's' || event.key == 'S') direction.backwards = false;
     if (event.key == 'a' || event.key == 'A') direction.left = false;
     if (event.key == 'd' || event.key == 'D') direction.right = false;
+    if (event.key == 'q' || event.key == 'f') direction.shoot = false;
 });
 
 setInterval(update, 1000/60);
