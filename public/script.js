@@ -4,6 +4,7 @@ const canvas = document.getElementById('canvas');
 canvas.width = WIDTH;
 canvas.height = HEIGHT;
 const draw = canvas.getContext('2d');
+
 function draw_component(players){
     draw.clearRect(0, 0, WIDTH, HEIGHT);
 

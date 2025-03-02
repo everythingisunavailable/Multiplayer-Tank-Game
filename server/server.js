@@ -98,7 +98,7 @@ class tank{
         this.x += this.h_speed;
         this.y += this.v_speed;
         this.update_vertices();
-        this.collides(this);
+        //TODO: for every map object check for collision (in a radius) 
     }
 
     update_vertices(){
@@ -129,68 +129,185 @@ class tank{
     }
 
     collides(rect){
+        // Define axes for rectangle A and B
         let axis1_a = {x: this.vb.x - this.va.x, y: this.vb.y - this.va.y};
         let axis2_a = {x: this.vc.x - this.vb.x, y: this.vc.y - this.vb.y};
-
+    
         let axis1_b = {x: rect.vb.x - rect.va.x, y: rect.vb.y - rect.va.y};
         let axis2_b = {x: rect.vc.x - rect.vb.x, y: rect.vc.y - rect.vb.y};
-
-        //project vb to axis 1 for the first rect (a)
+    
+        //=================== Axis 1 of rect A ===================//
+        // Project vb to axis1_a for rect A
         let projection_vb = (this.vb.x * axis1_a.x + this.vb.y * axis1_a.y) / (axis1_a.x * axis1_a.x + axis1_a.y * axis1_a.y);
         let projection_vb_x = projection_vb * axis1_a.x;
         let projection_vb_y = projection_vb * axis1_a.y;
         let dot_product_vb = projection_vb_x * axis1_a.x + projection_vb_y * axis1_a.y;
-
-        //project va to axis 1 for the first rect (a)
+    
+        // Project va to axis1_a for rect A
         let projection_va = (this.va.x * axis1_a.x + this.va.y * axis1_a.y) / (axis1_a.x * axis1_a.x + axis1_a.y * axis1_a.y);
         let projection_va_x = projection_va * axis1_a.x;
         let projection_va_y = projection_va * axis1_a.y;
         let dot_product_va = projection_va_x * axis1_a.x + projection_va_y * axis1_a.y;
-
-        //project vb to axis 1 for the second rect (b)
+    
+        // Project vertices of rect B onto axis1_a
         let projection_vb_b = (rect.vb.x * axis1_a.x + rect.vb.y * axis1_a.y) / (axis1_a.x * axis1_a.x + axis1_a.y * axis1_a.y);
         let projection_vb_b_x = projection_vb_b * axis1_a.x;
         let projection_vb_b_y = projection_vb_b * axis1_a.y;
         let dot_product_vb_b = projection_vb_b_x * axis1_a.x + projection_vb_b_y * axis1_a.y;
-
-        //project va to axis 1 for the second rect (b)
+    
         let projection_va_b = (rect.va.x * axis1_a.x + rect.va.y * axis1_a.y) / (axis1_a.x * axis1_a.x + axis1_a.y * axis1_a.y);
         let projection_va_b_x = projection_va_b * axis1_a.x;
         let projection_va_b_y = projection_va_b * axis1_a.y;
         let dot_product_va_b = projection_va_b_x * axis1_a.x + projection_va_b_y * axis1_a.y;
-
-        //project vc to axis 1 for the second rect (b)
+    
         let projection_vc_b = (rect.vc.x * axis1_a.x + rect.vc.y * axis1_a.y) / (axis1_a.x * axis1_a.x + axis1_a.y * axis1_a.y);
         let projection_vc_b_x = projection_vc_b * axis1_a.x;
         let projection_vc_b_y = projection_vc_b * axis1_a.y;
         let dot_product_vc_b = projection_vc_b_x * axis1_a.x + projection_vc_b_y * axis1_a.y;
-
-        //project vd to axis 1 for the second rect (b)
+    
         let projection_vd_b = (rect.vd.x * axis1_a.x + rect.vd.y * axis1_a.y) / (axis1_a.x * axis1_a.x + axis1_a.y * axis1_a.y);
         let projection_vd_b_x = projection_vd_b * axis1_a.x;
         let projection_vd_b_y = projection_vd_b * axis1_a.y;
         let dot_product_vd_b = projection_vd_b_x * axis1_a.x + projection_vd_b_y * axis1_a.y;
-
-
+    
+        // Get min and max projection values on axis1_a for both rectangles
         let min_a = Math.min(dot_product_va, dot_product_vb);
-        let min_b = Math.min(dot_product_va_b, dot_product_vb_b, dot_product_vc_b, dot_product_vd_b);
         let max_a = Math.max(dot_product_va, dot_product_vb);
+        let min_b = Math.min(dot_product_va_b, dot_product_vb_b, dot_product_vc_b, dot_product_vd_b);
         let max_b = Math.max(dot_product_va_b, dot_product_vb_b, dot_product_vc_b, dot_product_vd_b);
-
+    
         if (min_b > max_a || max_b < min_a) return false;
-
-        //repeat the same for axis 2 of rect a and so on
+    
+        //=================== Axis 2 of rect A ===================//
+        // Project vb to axis2_a for rect A
+        let projection_vb_axis2 = (this.vb.x * axis2_a.x + this.vb.y * axis2_a.y) / (axis2_a.x * axis2_a.x + axis2_a.y * axis2_a.y);
+        let projection_vb_axis2_x = projection_vb_axis2 * axis2_a.x;
+        let projection_vb_axis2_y = projection_vb_axis2 * axis2_a.y;
+        let dot_product_vb_axis2 = projection_vb_axis2_x * axis2_a.x + projection_vb_axis2_y * axis2_a.y;
+    
+        // Project vc to axis2_a for rect A
+        let projection_vc_axis2 = (this.vc.x * axis2_a.x + this.vc.y * axis2_a.y) / (axis2_a.x * axis2_a.x + axis2_a.y * axis2_a.y);
+        let projection_vc_axis2_x = projection_vc_axis2 * axis2_a.x;
+        let projection_vc_axis2_y = projection_vc_axis2 * axis2_a.y;
+        let dot_product_vc_axis2 = projection_vc_axis2_x * axis2_a.x + projection_vc_axis2_y * axis2_a.y;
+    
+        // Project vertices of rect B onto axis2_a
+        let projection_va_b_axis2 = (rect.va.x * axis2_a.x + rect.va.y * axis2_a.y) / (axis2_a.x * axis2_a.x + axis2_a.y * axis2_a.y);
+        let projection_va_b_axis2_x = projection_va_b_axis2 * axis2_a.x;
+        let projection_va_b_axis2_y = projection_va_b_axis2 * axis2_a.y;
+        let dot_product_va_b_axis2 = projection_va_b_axis2_x * axis2_a.x + projection_va_b_axis2_y * axis2_a.y;
+    
+        let projection_vb_b_axis2 = (rect.vb.x * axis2_a.x + rect.vb.y * axis2_a.y) / (axis2_a.x * axis2_a.x + axis2_a.y * axis2_a.y);
+        let projection_vb_b_axis2_x = projection_vb_b_axis2 * axis2_a.x;
+        let projection_vb_b_axis2_y = projection_vb_b_axis2 * axis2_a.y;
+        let dot_product_vb_b_axis2 = projection_vb_b_axis2_x * axis2_a.x + projection_vb_b_axis2_y * axis2_a.y;
+    
+        let projection_vc_b_axis2 = (rect.vc.x * axis2_a.x + rect.vc.y * axis2_a.y) / (axis2_a.x * axis2_a.x + axis2_a.y * axis2_a.y);
+        let projection_vc_b_axis2_x = projection_vc_b_axis2 * axis2_a.x;
+        let projection_vc_b_axis2_y = projection_vc_b_axis2 * axis2_a.y;
+        let dot_product_vc_b_axis2 = projection_vc_b_axis2_x * axis2_a.x + projection_vc_b_axis2_y * axis2_a.y;
+    
+        let projection_vd_b_axis2 = (rect.vd.x * axis2_a.x + rect.vd.y * axis2_a.y) / (axis2_a.x * axis2_a.x + axis2_a.y * axis2_a.y);
+        let projection_vd_b_axis2_x = projection_vd_b_axis2 * axis2_a.x;
+        let projection_vd_b_axis2_y = projection_vd_b_axis2 * axis2_a.y;
+        let dot_product_vd_b_axis2 = projection_vd_b_axis2_x * axis2_a.x + projection_vd_b_axis2_y * axis2_a.y;
+    
+        let min_a_axis2 = Math.min(dot_product_vb_axis2, dot_product_vc_axis2);
+        let max_a_axis2 = Math.max(dot_product_vb_axis2, dot_product_vc_axis2);
+        let min_b_axis2 = Math.min(dot_product_va_b_axis2, dot_product_vb_b_axis2, dot_product_vc_b_axis2, dot_product_vd_b_axis2);
+        let max_b_axis2 = Math.max(dot_product_va_b_axis2, dot_product_vb_b_axis2, dot_product_vc_b_axis2, dot_product_vd_b_axis2);
+    
+        if (min_b_axis2 > max_a_axis2 || max_b_axis2 < min_a_axis2) return false;
+    
+        //=================== Axis 1 of rect B ===================//
+        // Project va to axis1_b for rect B
+        let projection_va_b_axis1 = (rect.va.x * axis1_b.x + rect.va.y * axis1_b.y) / (axis1_b.x * axis1_b.x + axis1_b.y * axis1_b.y);
+        let projection_va_b_axis1_x = projection_va_b_axis1 * axis1_b.x;
+        let projection_va_b_axis1_y = projection_va_b_axis1 * axis1_b.y;
+        let dot_product_va_b_axis1 = projection_va_b_axis1_x * axis1_b.x + projection_va_b_axis1_y * axis1_b.y;
+    
+        // Project vb to axis1_b for rect B
+        let projection_vb_b_axis1 = (rect.vb.x * axis1_b.x + rect.vb.y * axis1_b.y) / (axis1_b.x * axis1_b.x + axis1_b.y * axis1_b.y);
+        let projection_vb_b_axis1_x = projection_vb_b_axis1 * axis1_b.x;
+        let projection_vb_b_axis1_y = projection_vb_b_axis1 * axis1_b.y;
+        let dot_product_vb_b_axis1 = projection_vb_b_axis1_x * axis1_b.x + projection_vb_b_axis1_y * axis1_b.y;
+    
+        // Project vertices of rect A onto axis1_b
+        let projection_va_a_axis1 = (this.va.x * axis1_b.x + this.va.y * axis1_b.y) / (axis1_b.x * axis1_b.x + axis1_b.y * axis1_b.y);
+        let projection_va_a_axis1_x = projection_va_a_axis1 * axis1_b.x;
+        let projection_va_a_axis1_y = projection_va_a_axis1 * axis1_b.y;
+        let dot_product_va_a_axis1 = projection_va_a_axis1_x * axis1_b.x + projection_va_a_axis1_y * axis1_b.y;
+    
+        let projection_vb_a_axis1 = (this.vb.x * axis1_b.x + this.vb.y * axis1_b.y) / (axis1_b.x * axis1_b.x + axis1_b.y * axis1_b.y);
+        let projection_vb_a_axis1_x = projection_vb_a_axis1 * axis1_b.x;
+        let projection_vb_a_axis1_y = projection_vb_a_axis1 * axis1_b.y;
+        let dot_product_vb_a_axis1 = projection_vb_a_axis1_x * axis1_b.x + projection_vb_a_axis1_y * axis1_b.y;
+    
+        let projection_vc_a_axis1 = (this.vc.x * axis1_b.x + this.vc.y * axis1_b.y) / (axis1_b.x * axis1_b.x + axis1_b.y * axis1_b.y);
+        let projection_vc_a_axis1_x = projection_vc_a_axis1 * axis1_b.x;
+        let projection_vc_a_axis1_y = projection_vc_a_axis1 * axis1_b.y;
+        let dot_product_vc_a_axis1 = projection_vc_a_axis1_x * axis1_b.x + projection_vc_a_axis1_y * axis1_b.y;
+    
+        let projection_vd_a_axis1 = (this.vd.x * axis1_b.x + this.vd.y * axis1_b.y) / (axis1_b.x * axis1_b.x + axis1_b.y * axis1_b.y);
+        let projection_vd_a_axis1_x = projection_vd_a_axis1 * axis1_b.x;
+        let projection_vd_a_axis1_y = projection_vd_a_axis1 * axis1_b.y;
+        let dot_product_vd_a_axis1 = projection_vd_a_axis1_x * axis1_b.x + projection_vd_a_axis1_y * axis1_b.y;
+    
+        let min_b_rect = Math.min(dot_product_va_b_axis1, dot_product_vb_b_axis1);
+        let max_b_rect = Math.max(dot_product_va_b_axis1, dot_product_vb_b_axis1);
+        let min_a_rect = Math.min(dot_product_va_a_axis1, dot_product_vb_a_axis1, dot_product_vc_a_axis1, dot_product_vd_a_axis1);
+        let max_a_rect = Math.max(dot_product_va_a_axis1, dot_product_vb_a_axis1, dot_product_vc_a_axis1, dot_product_vd_a_axis1);
+    
+        if (min_a_rect > max_b_rect || max_a_rect < min_b_rect) return false;
+    
+        //=================== Axis 2 of rect B ===================//
+        // Project vb to axis2_b for rect B
+        let projection_vb_b_axis2b = (rect.vb.x * axis2_b.x + rect.vb.y * axis2_b.y) / (axis2_b.x * axis2_b.x + axis2_b.y * axis2_b.y);
+        let projection_vb_b_axis2b_x = projection_vb_b_axis2b * axis2_b.x;
+        let projection_vb_b_axis2b_y = projection_vb_b_axis2b * axis2_b.y;
+        let dot_product_vb_b_axis2b = projection_vb_b_axis2b_x * axis2_b.x + projection_vb_b_axis2b_y * axis2_b.y;
+    
+        // Project vc to axis2_b for rect B
+        let projection_vc_b_axis2b = (rect.vc.x * axis2_b.x + rect.vc.y * axis2_b.y) / (axis2_b.x * axis2_b.x + axis2_b.y * axis2_b.y);
+        let projection_vc_b_axis2b_x = projection_vc_b_axis2b * axis2_b.x;
+        let projection_vc_b_axis2b_y = projection_vc_b_axis2b * axis2_b.y;
+        let dot_product_vc_b_axis2b = projection_vc_b_axis2b_x * axis2_b.x + projection_vc_b_axis2b_y * axis2_b.y;
+    
+        // Project vertices of rect A onto axis2_b
+        let projection_va_a_axis2b = (this.va.x * axis2_b.x + this.va.y * axis2_b.y) / (axis2_b.x * axis2_b.x + axis2_b.y * axis2_b.y);
+        let projection_va_a_axis2b_x = projection_va_a_axis2b * axis2_b.x;
+        let projection_va_a_axis2b_y = projection_va_a_axis2b * axis2_b.y;
+        let dot_product_va_a_axis2b = projection_va_a_axis2b_x * axis2_b.x + projection_va_a_axis2b_y * axis2_b.y;
+    
+        let projection_vb_a_axis2b = (this.vb.x * axis2_b.x + this.vb.y * axis2_b.y) / (axis2_b.x * axis2_b.x + axis2_b.y * axis2_b.y);
+        let projection_vb_a_axis2b_x = projection_vb_a_axis2b * axis2_b.x;
+        let projection_vb_a_axis2b_y = projection_vb_a_axis2b * axis2_b.y;
+        let dot_product_vb_a_axis2b = projection_vb_a_axis2b_x * axis2_b.x + projection_vb_a_axis2b_y * axis2_b.y;
+    
+        let projection_vc_a_axis2b = (this.vc.x * axis2_b.x + this.vc.y * axis2_b.y) / (axis2_b.x * axis2_b.x + axis2_b.y * axis2_b.y);
+        let projection_vc_a_axis2b_x = projection_vc_a_axis2b * axis2_b.x;
+        let projection_vc_a_axis2b_y = projection_vc_a_axis2b * axis2_b.y;
+        let dot_product_vc_a_axis2b = projection_vc_a_axis2b_x * axis2_b.x + projection_vc_a_axis2b_y * axis2_b.y;
+    
+        let projection_vd_a_axis2b = (this.vd.x * axis2_b.x + this.vd.y * axis2_b.y) / (axis2_b.x * axis2_b.x + axis2_b.y * axis2_b.y);
+        let projection_vd_a_axis2b_x = projection_vd_a_axis2b * axis2_b.x;
+        let projection_vd_a_axis2b_y = projection_vd_a_axis2b * axis2_b.y;
+        let dot_product_vd_a_axis2b = projection_vd_a_axis2b_x * axis2_b.x + projection_vd_a_axis2b_y * axis2_b.y;
+    
+        let min_b_axis2b = Math.min(dot_product_vb_b_axis2b, dot_product_vc_b_axis2b);
+        let max_b_axis2b = Math.max(dot_product_vb_b_axis2b, dot_product_vc_b_axis2b);
+        let min_a_axis2b = Math.min(dot_product_va_a_axis2b, dot_product_vb_a_axis2b, dot_product_vc_a_axis2b, dot_product_vd_a_axis2b);
+        let max_a_axis2b = Math.max(dot_product_va_a_axis2b, dot_product_vb_a_axis2b, dot_product_vc_a_axis2b, dot_product_vd_a_axis2b);
+    
+        if (min_a_axis2b > max_b_axis2b || max_a_axis2b < min_b_axis2b) return false;
+    
+        return true;
     }
-
 }
-
 
 
 let players = [];
 let ids = [];
-
-
-const FIXED_TIME = 1000/60;
 
 io.on("connection", (socket) => {
     let clientId = socket.handshake.query.clientId;
