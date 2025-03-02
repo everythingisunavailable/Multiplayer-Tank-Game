@@ -63,6 +63,11 @@ class tank{
     a;
     bullet;
 
+    va;
+    vb;
+    vc;
+    vd;
+
     constructor(){
         this.height = 40;
         this.width = 35;
@@ -74,9 +79,16 @@ class tank{
         this.a = 2;
         this.r_speed = 0.05;
         this.bullet = new bullet(this);
+
+        //vertices
+        this.va = {x: this.x, y: this.y};
+        this.vb = {x: this.x, y: this.y + this.width};
+        this.vc = {x: this.x + this.height, y: this.y + this.width};
+        this.vd = {x: this.x + this.height, y: this.y};
     }
 
     move(direction, delta){
+        if (this.angle > Math.PI*2 || this.angle < -Math.PI*2) this.angle = 0;
         if (direction.left) this.angle -= this.r_speed * delta;
         if (direction.right) this.angle += this.r_speed * delta;
         if (direction.forwards){ this.h_speed = Math.cos(this.angle) * this.a * delta; this.v_speed = Math.sin(this.angle) * this.a * delta;}
@@ -85,7 +97,91 @@ class tank{
 
         this.x += this.h_speed;
         this.y += this.v_speed;
+        this.update_vertices();
+        this.collides(this);
     }
+
+    update_vertices(){
+        let cx = this.x + this.width/2;
+        let cy = this.y + this.height/2;
+        let sinA = Math.sin(this.angle);
+        let cosA = Math.cos(this.angle);
+        let relX = this.x - cx;
+        let relY = this.y - cy;
+
+        this.va.x = (relX * cosA - relY * sinA) + cx;
+        this.va.y = (relX * sinA + relY * cosA) + cy;
+
+        relX = this.x + this.width - cx;
+        relY = this.y - cy;
+        this.vb.x = (relX * cosA - relY * sinA) + cx;
+        this.vb.y = (relX * sinA + relY * cosA) + cy;
+        
+        relX = this.x + this.width - cx;
+        relY = this.y + this.height - cy;
+        this.vc.x = (relX * cosA - relY * sinA) + cx;
+        this.vc.y = (relX * sinA + relY * cosA) + cy;
+
+        relX = this.x - cx;
+        relY = this.y + this.height - cy;
+        this.vd.x = (relX * cosA - relY * sinA) + cx;
+        this.vd.y = (relX * sinA + relY * cosA) + cy;        
+    }
+
+    collides(rect){
+        let axis1_a = {x: this.vb.x - this.va.x, y: this.vb.y - this.va.y};
+        let axis2_a = {x: this.vc.x - this.vb.x, y: this.vc.y - this.vb.y};
+
+        let axis1_b = {x: rect.vb.x - rect.va.x, y: rect.vb.y - rect.va.y};
+        let axis2_b = {x: rect.vc.x - rect.vb.x, y: rect.vc.y - rect.vb.y};
+
+        //project vb to axis 1 for the first rect (a)
+        let projection_vb = (this.vb.x * axis1_a.x + this.vb.y * axis1_a.y) / (axis1_a.x * axis1_a.x + axis1_a.y * axis1_a.y);
+        let projection_vb_x = projection_vb * axis1_a.x;
+        let projection_vb_y = projection_vb * axis1_a.y;
+        let dot_product_vb = projection_vb_x * axis1_a.x + projection_vb_y * axis1_a.y;
+
+        //project va to axis 1 for the first rect (a)
+        let projection_va = (this.va.x * axis1_a.x + this.va.y * axis1_a.y) / (axis1_a.x * axis1_a.x + axis1_a.y * axis1_a.y);
+        let projection_va_x = projection_va * axis1_a.x;
+        let projection_va_y = projection_va * axis1_a.y;
+        let dot_product_va = projection_va_x * axis1_a.x + projection_va_y * axis1_a.y;
+
+        //project vb to axis 1 for the second rect (b)
+        let projection_vb_b = (rect.vb.x * axis1_a.x + rect.vb.y * axis1_a.y) / (axis1_a.x * axis1_a.x + axis1_a.y * axis1_a.y);
+        let projection_vb_b_x = projection_vb_b * axis1_a.x;
+        let projection_vb_b_y = projection_vb_b * axis1_a.y;
+        let dot_product_vb_b = projection_vb_b_x * axis1_a.x + projection_vb_b_y * axis1_a.y;
+
+        //project va to axis 1 for the second rect (b)
+        let projection_va_b = (rect.va.x * axis1_a.x + rect.va.y * axis1_a.y) / (axis1_a.x * axis1_a.x + axis1_a.y * axis1_a.y);
+        let projection_va_b_x = projection_va_b * axis1_a.x;
+        let projection_va_b_y = projection_va_b * axis1_a.y;
+        let dot_product_va_b = projection_va_b_x * axis1_a.x + projection_va_b_y * axis1_a.y;
+
+        //project vc to axis 1 for the second rect (b)
+        let projection_vc_b = (rect.vc.x * axis1_a.x + rect.vc.y * axis1_a.y) / (axis1_a.x * axis1_a.x + axis1_a.y * axis1_a.y);
+        let projection_vc_b_x = projection_vc_b * axis1_a.x;
+        let projection_vc_b_y = projection_vc_b * axis1_a.y;
+        let dot_product_vc_b = projection_vc_b_x * axis1_a.x + projection_vc_b_y * axis1_a.y;
+
+        //project vd to axis 1 for the second rect (b)
+        let projection_vd_b = (rect.vd.x * axis1_a.x + rect.vd.y * axis1_a.y) / (axis1_a.x * axis1_a.x + axis1_a.y * axis1_a.y);
+        let projection_vd_b_x = projection_vd_b * axis1_a.x;
+        let projection_vd_b_y = projection_vd_b * axis1_a.y;
+        let dot_product_vd_b = projection_vd_b_x * axis1_a.x + projection_vd_b_y * axis1_a.y;
+
+
+        let min_a = Math.min(dot_product_va, dot_product_vb);
+        let min_b = Math.min(dot_product_va_b, dot_product_vb_b, dot_product_vc_b, dot_product_vd_b);
+        let max_a = Math.max(dot_product_va, dot_product_vb);
+        let max_b = Math.max(dot_product_va_b, dot_product_vb_b, dot_product_vc_b, dot_product_vd_b);
+
+        if (min_b > max_a || max_b < min_a) return false;
+
+        //repeat the same for axis 2 of rect a and so on
+    }
+
 }
 
 
