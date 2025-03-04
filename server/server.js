@@ -53,24 +53,8 @@ class bullet{
     }
 }
 
-class tank{
-    height;
-    width;
-    x;
-    y;
-    h_speed;
-    v_speed;
-    r_speed;
-    angle;
-    a;
-    bullet;
-
-    va;
-    vb;
-    vc;
-    vd;
-    collision_checker_radius;
-    constructor(){
+class tank {
+    constructor() {
         this.height = 35;
         this.width = 40;
         this.x = 200;
@@ -82,23 +66,27 @@ class tank{
         this.r_speed = 0.05;
         this.bullet = new bullet(this);
 
-        //vertices
-        this.va = {x: this.x, y: this.y};
-        this.vb = {x: this.x + this.width, y: this.y};
-        this.vc = {x: this.x + this.width, y: this.y + this.height};
-        this.vd = {x: this.x, y: this.y + this.height};
-
-        //collision 
+        this.va = { x: this.x, y: this.y };
+        this.vb = { x: this.x + this.width, y: this.y };
+        this.vc = { x: this.x + this.width, y: this.y + this.height };
+        this.vd = { x: this.x, y: this.y + this.height };
+        
         this.collision_checker_radius = 10;
     }
-
-    move(direction, delta, map){
-        if (this.angle > Math.PI*2 || this.angle < -Math.PI*2) this.angle = 0;
+    move(direction, delta, map) {
+        if (this.angle > Math.PI * 2 || this.angle < -Math.PI * 2) this.angle = 0;
         if (direction.left) this.angle -= this.r_speed * delta;
         if (direction.right) this.angle += this.r_speed * delta;
-        if (direction.forwards){ this.h_speed = Math.cos(this.angle) * this.a * delta; this.v_speed = Math.sin(this.angle) * this.a * delta;}
-        else if (direction.backwards){ this.h_speed = -Math.cos(this.angle) * this.a * delta; this.v_speed = -Math.sin(this.angle) * this.a * delta;}
-        else{this.h_speed = 0 ; this.v_speed = 0;}
+        if (direction.forwards) {
+            this.h_speed = Math.cos(this.angle) * this.a * delta;
+            this.v_speed = Math.sin(this.angle) * this.a * delta;
+        } else if (direction.backwards) {
+            this.h_speed = -Math.cos(this.angle) * this.a * delta;
+            this.v_speed = -Math.sin(this.angle) * this.a * delta;
+        } else {
+            this.h_speed = 0;
+            this.v_speed = 0;
+        }
 
         this.bullet.move(direction, this, delta);
 
@@ -109,10 +97,9 @@ class tank{
         this.check_collisions(map, direction);
     }
 
-
-    update_vertices(){
-        let cx = this.x + this.width/2;
-        let cy = this.y + this.height/2;
+    update_vertices() {
+        let cx = this.x + this.width / 2;
+        let cy = this.y + this.height / 2;
         let sinA = Math.sin(this.angle);
         let cosA = Math.cos(this.angle);
         let relX = this.x - cx;
@@ -125,7 +112,7 @@ class tank{
         relY = this.y - cy;
         this.vb.x = (relX * cosA - relY * sinA) + cx;
         this.vb.y = (relX * sinA + relY * cosA) + cy;
-        
+
         relX = this.x + this.width - cx;
         relY = this.y + this.height - cy;
         this.vc.x = (relX * cosA - relY * sinA) + cx;
@@ -134,126 +121,108 @@ class tank{
         relX = this.x - cx;
         relY = this.y + this.height - cy;
         this.vd.x = (relX * cosA - relY * sinA) + cx;
-        this.vd.y = (relX * sinA + relY * cosA) + cy;        
+        this.vd.y = (relX * sinA + relY * cosA) + cy;
     }
 
-    check_collisions(map, direction){
+    check_collisions(map, direction) {
         map.forEach(segment => {
-            if (segment.va.x > this.x + this.width + this.collision_checker_radius ||
+            if (
+                segment.va.x > this.x + this.width + this.collision_checker_radius ||
                 segment.vb.x < this.x - this.collision_checker_radius ||
                 segment.va.y > this.y + this.height + this.collision_checker_radius ||
-                segment.vd.y < this.y - this.collision_checker_radius) return;
-            
-            if (this.collides(segment)) {
-                //console.log('collision');
-            }
+                segment.vd.y < this.y - this.collision_checker_radius
+            ) return;
+
+            this.resolveCollision(segment);
         });
     }
-    
-    get_axis(vertex1, vertex2){
-        return {x: vertex2.x - vertex1.x, y: vertex2.y - vertex1.y};
-    }
-    get_dot_product(axis, vertex){
-        let constant = (vertex.x * axis.x + vertex.y * axis.y)/(axis.x * axis.x + axis.y * axis.y);
-        return  constant * axis.x + constant * axis.y;
-    }
-    get_rect_vertex_projections(axis, vertecies){
-        let dot_products = [];
-        for (let i = 0; i < vertecies.length; i++) {
-            let dot_product = this.get_dot_product(axis, vertecies[i]);
-            dot_products.push(dot_product);
-        }
-        return dot_products;
-    }
-    get_min_max(rect1, rect, axis_array){
-        let rect1_vertices = [rect1.va, rect1.vb, rect1.vc, rect1.vd];
-        let rect_vertices = [rect.va, rect.vb, rect.vc, rect.vd];
-        let overlaps = [];
 
-        for (let i = 0; i < 2; i++) {
-            let dot_product_rect1 = [this.get_dot_product(axis_array[i], rect1_vertices[i]), this.get_dot_product(axis_array[i], rect1_vertices[i+1])];
+    static project(vertices, axis) {
+        let min = Infinity, max = -Infinity;
+        for (let v of vertices) {
+            let proj = (v.x * axis.x + v.y * axis.y);
+            if (proj < min) min = proj;
+            if (proj > max) max = proj;
+        }
+        return { min, max };
+    }
+
+    static overlap(proj1, proj2) {
+        return !(proj1.max < proj2.min || proj2.max < proj1.min);
+    }
+
+    static getAxes(vertices) {
+        let axes = [];
+        for (let i = 0; i < vertices.length; i++) {
+            let p1 = vertices[i], p2 = vertices[(i + 1) % vertices.length];
+            let edge = { x: p2.x - p1.x, y: p2.y - p1.y };
+            let normal = { x: -edge.y, y: edge.x };
+            let length = Math.sqrt(normal.x ** 2 + normal.y ** 2);
+            normal.x /= length;
+            normal.y /= length;
+            axes.push(normal);
+        }
+        return axes;
+    }
+
+    collides(obstacle) {
+        let tankVertices = [this.va, this.vb, this.vc, this.vd];
+        let obstacleVertices = [obstacle.va, obstacle.vb, obstacle.vc, obstacle.vd];
+        let axes = [...tank.getAxes(tankVertices), ...tank.getAxes(obstacleVertices)];
+        
+        let minPenetration = Infinity;
+        let smallestAxis = null;
+
+        for (let axis of axes) {
+            let proj1 = tank.project(tankVertices, axis);
+            let proj2 = tank.project(obstacleVertices, axis);
             
-            let dot_product_rect = this.get_rect_vertex_projections(axis_array[i], rect_vertices);
-    
-            let min_rect1 = Math.min(...dot_product_rect1);
-            let max_rect1 = Math.max(...dot_product_rect1);
-            let min_rect = Math.min(...dot_product_rect);
-            let max_rect = Math.max(...dot_product_rect);
-    
-            let overlap_a = max_rect - min_rect1;
-            let overlap_b = max_rect1 - min_rect;            
-
-            if (overlap_a < 0.001) return;
-            else overlaps.push(overlap_a);
-            if (overlap_b < 0.001) return;
-            else overlaps.push(overlap_b);
-        }
-        
-        return overlaps;
-    }
-
-    resolve_collision(rect1, overlap, axis) {
-        let minOverlap = overlap;
-        let minAxis = axis;
-    
-        // Normalize the axis (collision normal)
-        let normal = null;
-        let magnitude = Math.sqrt(minAxis.x * minAxis.x + minAxis.y * minAxis.y);
-        if (magnitude > 0.001) {  // Avoid division by zero
-            normal = { x: minAxis.x / magnitude, y: minAxis.y / magnitude };
-        } else {
-            return; // No valid collision direction
-        }
-    
-        // Project linear movement onto the collision normal
-        let dotProduct = (rect1.h_speed * normal.x + rect1.v_speed * normal.y);
-    
-        if (dotProduct < 0) { // Moving into the object
-            rect1.x += minOverlap * normal.x;
-            rect1.y += minOverlap * normal.y;
-        } else { // Moving away from the object, flip normal
-            rect1.x -= minOverlap * normal.x;
-            rect1.y -= minOverlap * normal.y;
-        }
-    }
-    
-    
-    
-
-    collides (rect){
-        //all axes
-        let axis_this = {first: this.get_axis(this.va, this.vb), second: this.get_axis(this.vb, this.vc)};
-        let axis_rect = {first: this.get_axis(rect.va, rect.vb), second: this.get_axis(rect.vb, rect.vc)};
-
-        let overlaps_this_axis = this.get_min_max(this, rect, [axis_this.first, axis_this.second]);
-        if (!overlaps_this_axis) return false;
-
-        let overlaps_rect_axis = this.get_min_max(rect, this, [axis_rect.first, axis_rect.second]);
-        if (!overlaps_rect_axis) return false;
-        
-        overlaps_this_axis.push(...overlaps_rect_axis);
-
-        //qr, njer axes njer axis :(
-        //the overlaps are related to the axes as followed based on index: 
-        //0,1 - axes_this.first, 2,3 - axes_this.second, 4,5 - axes_rect.first, 6,7 - axes_rect.second
-        let index = 0;
-        for (let i = 1; i < overlaps_this_axis.length; i++) {
-            if (overlaps_this_axis[index] > overlaps_this_axis[i]) {
-                index = i;
+            if (!tank.overlap(proj1, proj2)) {
+                return null; // No collision
+            }
+            
+            let overlap = Math.min(proj1.max, proj2.max) - Math.max(proj1.min, proj2.min);
+            if (overlap < minPenetration) {
+                minPenetration = overlap;
+                smallestAxis = axis;
             }
         }
-        
-        let collision_vector;
-        if (index == 0 || index == 1) collision_vector = axis_this.first;
-        else if (index == 2 || index == 3) collision_vector = axis_this.second;
-        else if (index == 4 || index == 5) collision_vector = axis_rect.first;
-        else if (index == 6 || index == 7) collision_vector = axis_rect.second;
-        
-                
 
-        this.resolve_collision(this, overlaps_this_axis[index], collision_vector) //collision vector is the axes
-        return true;
+        let tankCenter = { x: this.x + this.width / 2, y: this.y + this.height / 2 };
+        let obstacleCenter = { x: (obstacle.va.x + obstacle.vc.x) / 2, y: (obstacle.va.y + obstacle.vc.y) / 2 };
+        let centerVector = { x: tankCenter.x - obstacleCenter.x, y: tankCenter.y - obstacleCenter.y };
+        let dotProduct = centerVector.x * smallestAxis.x + centerVector.y * smallestAxis.y;
+        if (dotProduct < 0) {
+            smallestAxis.x *= -1;
+            smallestAxis.y *= -1;
+        }
+
+        return { axis: smallestAxis, depth: minPenetration };
     }
+
+    resolveCollision(obstacle) {
+    let collision = this.collides(obstacle);
+    if (!collision) return;
+
+    let normal = collision.axis;
+    let depth = collision.depth;
+
+    // Project velocity onto the collision normal
+    let velAlongNormal = this.h_speed * normal.x + this.v_speed * normal.y;
+
+    // Only correct position if the tank is moving into the obstacle
+    if (velAlongNormal < 0) {
+        this.x += normal.x * depth;
+        this.y += normal.y * depth;
+
+        // Remove velocity component along the normal
+        this.h_speed -= velAlongNormal * normal.x;
+        this.v_speed -= velAlongNormal * normal.y;
+    }
+
+    this.update_vertices();
+}
+
 }
 
 class segment{
@@ -282,7 +251,7 @@ class segment{
 
 
 
-const THICKNESS = 5;
+const THICKNESS = 10;
 const WIDTH = 1536;
 const HEIGHT = 703;
 
@@ -292,6 +261,8 @@ let map = [
     new segment(0, 0, WIDTH, THICKNESS),  
     new segment(WIDTH-THICKNESS, 0, THICKNESS, HEIGHT),  
     new segment(0, HEIGHT-THICKNESS, WIDTH, THICKNESS),
+    new segment (300, 0, THICKNESS, 300),
+    new segment (0, 300, 300, THICKNESS)
 ];
 let players = [];
 let ids = [];
@@ -349,7 +320,7 @@ function show_fps(delta){
     stack += delta;
     c++;
     if (stack >= 1000){
-        console.log('fps :', c);
+        //console.log('fps :', c);
         stack = 0;
         c = 0;
     }
