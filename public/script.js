@@ -31,6 +31,7 @@ function draw_component(players){
 
         //draw bullet
         draw.fillRect(tank.bullet.x, tank.bullet.y, tank.bullet.size, tank.bullet.size);
+            
     });
 }
 

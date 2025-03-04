@@ -15,41 +15,118 @@ class bullet{
     y;
     h_speed;
     v_speed;
-    a;
+    v_a;
+    h_a;
     last_time;
     BULLET_TIME;
     shooting;
     angle;
 
+    collidable;
+    collision_activation_time;
     constructor(tank){
-        this.size = 5;
-        this.y = tank.y + tank.width / 2;
-        this.x = tank.x + tank.height / 2;
-        this.a = 6;
+        this.size = 7;
+        this.y = tank.y - (this.size / 2) + tank.height/2;
+        this.x = tank.x - (this.size / 2) + tank.width + this.size;
+        this.h_a = 4;
+        this.v_a = 4;
+        this.h_speed = 0;
+        this.v_speed = 0;
         this.angle = tank.angle;
-
+        
         this.last_time = Date.now();
-        this.BULLET_TIME = 2500;
+        this.BULLET_TIME = 4000;
         this.shooting = false;
-    }
-    move(direction, tank, delta){
-        if(direction.shoot)this.shooting = true;
 
+        this.va = { x: this.x, y: this.y };
+        this.vb = { x: this.x + this.size, y: this.y };
+        this.vc = { x: this.x + this.size, y: this.y + this.size };
+        this.vd = { x: this.x, y: this.y + this.size };
+
+        this.collidable = false;
+        this.collision_activation_time = 160;
+    }
+    /*
+    rotate(tank){
+        let cx = tank.x + tank.width / 2;
+        let cy = tank.y + tank.height / 2;
+        let sinA = Math.sin(tank.angle);
+        let cosA = Math.cos(tank.angle);
+        let relX = this.x - cx;
+        let relY = this.y - cy;
+        
+        this.x = (relX * cosA - relY * sinA) + cx;
+        this.y = (relX * sinA + relY * cosA) + cy;
+    }
+    */
+
+    move(direction, tank, delta, map){  
+        this.update_vertices(map);  
+        this.collides(map);
+        if(direction.shoot &&
+        Math.abs(this.x - (tank.x - (this.size / 2) + (tank.width / 2))) <= 5 &&
+        Math.abs(this.y - (tank.y - (this.size / 2) + (tank.height / 2))) <= 5 ) this.shooting = true;
+
+        this.collidable = false;
         let current_time = Date.now();
         let time_elapsed = current_time - this.last_time;
-        if (this.shooting && time_elapsed < this.BULLET_TIME){
-            this.h_speed = Math.cos(this.angle) * this.a * delta;
-            this.v_speed = Math.sin(this.angle) * this.a * delta;
-            this.x += this.h_speed;
-            this.y += this.v_speed;
+        if (this.shooting && time_elapsed <= this.BULLET_TIME){
+            this.h_speed = Math.cos(this.angle) * this.h_a;
+            this.v_speed = Math.sin(this.angle) * this.v_a;
+            this.x += this.h_speed * delta;
+            this.y += this.v_speed * delta;
+
+            //make it collidable after it leaves the tank
+            if (time_elapsed >= this.collision_activation_time) {
+                this.collidable = true;
+            }
         }
         else{
-            this.shooting = false;
-            this.last_time = current_time;
-            this.y = tank.y -2+ tank.width / 2;
-            this.x = tank.x + tank.height / 2;
-            this.angle = tank.angle;
+            this.reset(tank);            
         }
+    }
+
+    reset(tank){
+        this.collidable = false;
+        this.shooting = false;
+        this.last_time = Date.now();
+        this.x = tank.x - (this.size / 2) + (tank.width / 2) ;
+        this.y = tank.y - (this.size / 2) + (tank.height / 2);
+        this.angle = tank.angle;
+        this.h_a = 4;
+        this.v_a = 4;
+    };
+
+    update_vertices(){
+        this.va = { x: this.x, y: this.y };
+        this.vb = { x: this.x + this.size, y: this.y };
+        this.vc = { x: this.x + this.size, y: this.y + this.size };
+        this.vd = { x: this.x, y: this.y + this.size };
+    }
+
+    collides(map){
+        map.forEach( segment => {
+            if (segment.va.x < this.vb.x &&
+                segment.vb.x > this.va.x &&
+                segment.va.y < this.vd.y &&
+                segment.vd.y > this.va.y){
+                
+                //find the smalles overlap
+                let overlap_left = this.vb.x - segment.va.x;
+                let overlap_right = segment.vb.x - this.va.x;
+                let overlap_bottom = this.vd.y - segment.va.y;
+                let overlap_top = segment.vd.y - this.va.y;
+
+                let smallest_overlap = Math.min(overlap_bottom, overlap_left, overlap_right, overlap_top);
+                
+                if (smallest_overlap == overlap_left || smallest_overlap == overlap_right) {
+                    this.h_a = this.h_a * -1;
+                }
+                if (smallest_overlap == overlap_bottom || smallest_overlap == overlap_top) {
+                    this.v_a = this.v_a * -1;
+                }
+            }
+        });
     }
 }
 
@@ -72,6 +149,7 @@ class tank {
         this.vd = { x: this.x, y: this.y + this.height };
         
         this.collision_checker_radius = 10;
+        this.died = false;
     }
     move(direction, delta, map) {
         if (this.angle > Math.PI * 2 || this.angle < -Math.PI * 2) this.angle = 0;
@@ -88,13 +166,14 @@ class tank {
             this.v_speed = 0;
         }
 
-        this.bullet.move(direction, this, delta);
-
+        
         this.x += this.h_speed;
         this.y += this.v_speed;
         this.update_vertices();
 
-        this.check_collisions(map, direction);
+        this.bullet.move(direction, this, delta, map);
+
+        this.check_collisions(map, players);
     }
 
     update_vertices() {
@@ -104,7 +183,7 @@ class tank {
         let cosA = Math.cos(this.angle);
         let relX = this.x - cx;
         let relY = this.y - cy;
-
+        
         this.va.x = (relX * cosA - relY * sinA) + cx;
         this.va.y = (relX * sinA + relY * cosA) + cy;
 
@@ -124,7 +203,8 @@ class tank {
         this.vd.y = (relX * sinA + relY * cosA) + cy;
     }
 
-    check_collisions(map, direction) {
+    check_collisions(map, players) {
+        //map segments
         map.forEach(segment => {
             if (
                 segment.va.x > this.x + this.width + this.collision_checker_radius ||
@@ -132,9 +212,27 @@ class tank {
                 segment.va.y > this.y + this.height + this.collision_checker_radius ||
                 segment.vd.y < this.y - this.collision_checker_radius
             ) return;
-
+            
             this.resolveCollision(segment);
         });
+
+        //map objects
+        if (!players) return;
+        
+        for (let i = 0; i < players.length; i++) {
+            let player = Object.values(players[i])[0];
+            if (
+                player.bullet.va.x > this.x + this.width + this.collision_checker_radius ||
+                player.bullet.vb.x < this.x - this.collision_checker_radius ||
+                player.bullet.va.y > this.y + this.height + this.collision_checker_radius ||
+                player.bullet.vd.y < this.y - this.collision_checker_radius
+            ) return;
+            if(this.collides(player.bullet) && player.bullet.collidable){
+                player.bullet.reset(player);
+                this.died = true;
+            };
+        }
+        
     }
 
     static project(vertices, axis) {
@@ -172,7 +270,7 @@ class tank {
         
         let minPenetration = Infinity;
         let smallestAxis = null;
-
+        
         for (let axis of axes) {
             let proj1 = tank.project(tankVertices, axis);
             let proj2 = tank.project(obstacleVertices, axis);
@@ -201,27 +299,27 @@ class tank {
     }
 
     resolveCollision(obstacle) {
-    let collision = this.collides(obstacle);
-    if (!collision) return;
+        let collision = this.collides(obstacle);
+        if (!collision) return;
+        
+        let normal = collision.axis;
+        let depth = collision.depth;
 
-    let normal = collision.axis;
-    let depth = collision.depth;
+        // Project velocity onto the collision normal
+        let velAlongNormal = this.h_speed * normal.x + this.v_speed * normal.y;
 
-    // Project velocity onto the collision normal
-    let velAlongNormal = this.h_speed * normal.x + this.v_speed * normal.y;
-
-    // Only correct position if the tank is moving into the obstacle
-    if (velAlongNormal < 0) {
-        this.x += normal.x * depth;
-        this.y += normal.y * depth;
-
-        // Remove velocity component along the normal
-        this.h_speed -= velAlongNormal * normal.x;
-        this.v_speed -= velAlongNormal * normal.y;
+        // Only correct position if the tank is moving into the obstacle
+        if (velAlongNormal < 0) {
+            this.x += normal.x * depth;
+            this.y += normal.y * depth;
+            
+            // Remove velocity component along the normal
+            this.h_speed -= velAlongNormal * normal.x;
+            this.v_speed -= velAlongNormal * normal.y;
+        }
+        
+        this.update_vertices();
     }
-
-    this.update_vertices();
-}
 
 }
 
@@ -230,7 +328,7 @@ class segment{
     width;
     x;
     y;
-
+    
     va;
     vb;
     vc;
@@ -262,7 +360,7 @@ let map = [
     new segment(WIDTH-THICKNESS, 0, THICKNESS, HEIGHT),  
     new segment(0, HEIGHT-THICKNESS, WIDTH, THICKNESS),
     new segment (300, 0, THICKNESS, 300),
-    new segment (0, 300, 300, THICKNESS)
+    new segment (600, 0, THICKNESS, 300)
 ];
 let players = [];
 let ids = [];
@@ -287,17 +385,27 @@ io.on("connection", (socket) => {
     let last_time = Date.now();
 
     socket.on('movement', (direction)=>{
+        let found_object = null;
+        let tank = null;
+        found_object = players.find(obj => obj.hasOwnProperty(clientId));
 
-        let found_object = players.find(obj => obj.hasOwnProperty(clientId));
-        let tank = found_object[clientId];
+        if (found_object) tank = found_object[clientId];
 
         let delta = (Date.now() - last_time) / 10;
-        
         show_fps(delta*10);
 
-        tank.move(direction, delta, map);
+        if (tank) {
+            if (tank.died) {
+                let found_object = players.find(obj => obj.hasOwnProperty(clientId));
+                players.splice(players.indexOf(found_object), 1);
+            };
+
+            tank.move(direction, delta, map);
+            io.emit('update', players); 
+        }
+
         
-        io.emit('update', players); 
+        
         last_time = Date.now();       
     });
 
@@ -320,7 +428,7 @@ function show_fps(delta){
     stack += delta;
     c++;
     if (stack >= 1000){
-        //console.log('fps :', c);
+        console.log('fps :', c);
         stack = 0;
         c = 0;
     }
