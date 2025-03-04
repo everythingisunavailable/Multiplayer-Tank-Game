@@ -1,26 +1,31 @@
-const WIDTH = window.innerWidth;
-const HEIGHT = window.innerHeight;
+const WIDTH = 1536;
+const HEIGHT = 703;
 const canvas = document.getElementById('canvas');
 canvas.width = WIDTH;
 canvas.height = HEIGHT;
 const draw = canvas.getContext('2d');
+let map_array = null;
 
 function draw_component(players){
     draw.clearRect(0, 0, WIDTH, HEIGHT);
 
     if (!players) {console.log('players is empty');return};
+    if (!map_array) {console.log('map is empty');return};
+    map_array.forEach(segment =>{
+        draw.fillRect(segment.x, segment.y, segment.width, segment.height);
+    })
 
     players.forEach(player => {
         let tank = Object.values(player)[0];
         
         draw.save(); //save state
         //i have to translate the object i want to draw to the origin and then back
-        draw.translate(tank.x + tank.height/2, tank.y + tank.width/2);
+        draw.translate(tank.x + tank.width/2, tank.y + tank.height/2);
         draw.rotate(tank.angle); //rotate canvas
 
         //draw tank
-        draw.fillRect(-tank.height/2, -tank.width/2, tank.height, tank.width);
-        draw.fillRect(-tank.height/2, -tank.width/2 + tank.width * 0.35, tank.height*1.3, tank.width * 0.3);
+        draw.fillRect(-tank.width/2, -tank.height/2, tank.width, tank.height);
+        draw.fillRect(-tank.width/2, -tank.height/2 + tank.height * 0.35, tank.width*1.3, tank.height * 0.3);
 
         draw.restore(); //restore to previous
 
@@ -51,8 +56,11 @@ function generateClientId() {
 }
 
 socket.on("connect", () => {
-    console.log('connected successfully');
+    console.log('connected');
 });
+socket.on('map', (map)=>{
+    map_array = map;
+})
 socket.on('new_connection', (players)=>{
     draw_component(players);
 });
