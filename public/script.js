@@ -6,6 +6,7 @@ canvas.height = HEIGHT;
 const draw = canvas.getContext('2d');
 let map_array = null;
 
+//players is a dictionary
 function draw_component(players){
     draw.clearRect(0, 0, WIDTH, HEIGHT);
 
@@ -15,24 +16,24 @@ function draw_component(players){
         draw.fillRect(segment.x, segment.y, segment.width, segment.height);
     })
 
-    players.forEach(player => {
-        let tank = Object.values(player)[0];
-        
-        draw.save(); //save state
-        //i have to translate the object i want to draw to the origin and then back
-        draw.translate(tank.x + tank.width/2, tank.y + tank.height/2);
-        draw.rotate(tank.angle); //rotate canvas
-
-        //draw tank
-        draw.fillRect(-tank.width/2, -tank.height/2, tank.width, tank.height);
-        draw.fillRect(-tank.width/2, -tank.height/2 + tank.height * 0.35, tank.width*1.3, tank.height * 0.3);
-
-        draw.restore(); //restore to previous
-
-        //draw bullet
-        draw.fillRect(tank.bullet.x, tank.bullet.y, tank.bullet.size, tank.bullet.size);
-            
-    });
+    for (let playerId in players){
+        let tank = players[playerId];
+        if (tank){
+            draw.save(); //save state
+            //i have to translate the object i want to draw to the origin and then back
+            draw.translate(tank.x + tank.width/2, tank.y + tank.height/2);
+            draw.rotate(tank.angle); //rotate canvas
+    
+            //draw tank
+            draw.fillRect(-tank.width/2, -tank.height/2, tank.width, tank.height);
+            draw.fillRect(-tank.width/2, -tank.height/2 + tank.height * 0.35, tank.width*1.3, tank.height * 0.3);
+    
+            draw.restore(); //restore to previous
+    
+            //draw bullet
+            draw.fillRect(tank.bullet.x, tank.bullet.y, tank.bullet.size, tank.bullet.size);
+        };
+    }
 }
 
 let direction = {
@@ -45,14 +46,14 @@ let direction = {
 
 const socket = io({
     query: {
-        clientId: localStorage.getItem("clientId") || generateClientId()
+        clientId: sessionStorage.getItem("clientId") || generateClientId()
     }
 });
 update();
 
 function generateClientId() {
     const id = Math.random().toString(36).substring(2, 9);
-    localStorage.setItem("clientId", id);
+    sessionStorage.setItem("clientId", id);
     return id;
 }
 
@@ -102,7 +103,7 @@ window.addEventListener('keyup', (event)=>{
     if (event.key == 'q' || event.key == 'f') direction.shoot = false;
 });
 
-setInterval(update, 1000/60);
+setInterval(update, 1000/70);
 function update(){
     socket.emit('movement', direction);
 }

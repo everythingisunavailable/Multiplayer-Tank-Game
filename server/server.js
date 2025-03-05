@@ -9,6 +9,7 @@ const io = new Server(server);
 
 app.use(express.static("../public/")); // Serve client files from "public" folder
 
+let players = {};
 class bullet{
     size;
     x;
@@ -112,19 +113,19 @@ class bullet{
                 segment.vd.y > this.va.y){
                 
                 //find the smalles overlap
-                let overlap_left = this.vb.x - segment.va.x;
-                let overlap_right = segment.vb.x - this.va.x;
+                let overlap_right = this.vb.x - segment.va.x;
+                let overlap_left = segment.vb.x - this.va.x;
                 let overlap_bottom = this.vd.y - segment.va.y;
                 let overlap_top = segment.vd.y - this.va.y;
 
                 let smallest_overlap = Math.min(overlap_bottom, overlap_left, overlap_right, overlap_top);
+    
                 
-                if (smallest_overlap == overlap_left || smallest_overlap == overlap_right) {
-                    this.h_a = this.h_a * -1;
-                }
-                if (smallest_overlap == overlap_bottom || smallest_overlap == overlap_top) {
-                    this.v_a = this.v_a * -1;
-                }
+                if (smallest_overlap == overlap_left) { this.x = segment.vb.x; this.h_a = this.h_a * -1;}
+                if (smallest_overlap == overlap_right) { this.x = segment.va.x - this.size; this.h_a = this.h_a * -1;}
+                if (smallest_overlap == overlap_bottom) { this.y = segment.va.y - this.size; this.v_a = this.v_a * -1;}
+                if (smallest_overlap == overlap_top) { this.y = segment.vd.y; this.v_a = this.v_a * -1;}
+
             }
         });
     }
@@ -216,21 +217,21 @@ class tank {
             this.resolveCollision(segment);
         });
 
-        //map objects
-        if (!players) return;
-        
-        for (let i = 0; i < players.length; i++) {
-            let player = Object.values(players[i])[0];
-            if (
-                player.bullet.va.x > this.x + this.width + this.collision_checker_radius ||
-                player.bullet.vb.x < this.x - this.collision_checker_radius ||
-                player.bullet.va.y > this.y + this.height + this.collision_checker_radius ||
-                player.bullet.vd.y < this.y - this.collision_checker_radius
-            ) return;
-            if(this.collides(player.bullet) && player.bullet.collidable){
-                player.bullet.reset(player);
-                this.died = true;
-            };
+        //player bullets
+        for (let clientId in players){
+            if (players[clientId]){
+                let player = players[clientId];
+                if (
+                    player.bullet.va.x > this.x + this.width + this.collision_checker_radius ||
+                    player.bullet.vb.x < this.x - this.collision_checker_radius ||
+                    player.bullet.va.y > this.y + this.height + this.collision_checker_radius ||
+                    player.bullet.vd.y < this.y - this.collision_checker_radius
+                ) return;
+                if(this.collides(player.bullet) && player.bullet.collidable){
+                    player.bullet.reset(player);
+                    this.died = true;
+                };
+            }
         }
         
     }
@@ -359,21 +360,21 @@ let map = [
     new segment(0, 0, WIDTH, THICKNESS),  
     new segment(WIDTH-THICKNESS, 0, THICKNESS, HEIGHT),  
     new segment(0, HEIGHT-THICKNESS, WIDTH, THICKNESS),
+
+    //other
     new segment (300, 0, THICKNESS, 300),
-    new segment (600, 0, THICKNESS, 300)
+    new segment (600, 0, THICKNESS, 300),
+    new segment (0, 500, 300, THICKNESS),
 ];
-let players = [];
-let ids = [];
 
 io.on("connection", (socket) => {
-    let clientId = socket.handshake.query.clientId;
+    let clientId = socket.handshake.query.clientId.toString();
     
-    if (!ids[clientId]) {
-        let new_player = {};
-        new_player[clientId] = new tank();
-        players.push(new_player);
-        ids[clientId] = true;
+    if (!players[clientId]) {
+        players[clientId] = new tank();
     }
+    console.log(Object.keys(players).length);
+    
 
     socket.removeAllListeners("movement");
     
@@ -383,37 +384,23 @@ io.on("connection", (socket) => {
     socket.emit('map', map);
 
     let last_time = Date.now();
-
     socket.on('movement', (direction)=>{
-        let found_object = null;
-        let tank = null;
-        found_object = players.find(obj => obj.hasOwnProperty(clientId));
-
-        if (found_object) tank = found_object[clientId];
-
         let delta = (Date.now() - last_time) / 10;
+
+
+        //player state (dead or alive)
+        if (players[clientId] && players[clientId].died){ players[clientId] = null, console.log(clientId, "has been slayen", players);}
+        else if (players[clientId]) players[clientId].move(direction, delta, map);
+        
+
+        io.emit('update', players);
         show_fps(delta*10);
-
-        if (tank) {
-            if (tank.died) {
-                let found_object = players.find(obj => obj.hasOwnProperty(clientId));
-                players.splice(players.indexOf(found_object), 1);
-            };
-
-            tank.move(direction, delta, map);
-            io.emit('update', players); 
-        }
-
-        
-        
-        last_time = Date.now();       
+        last_time = Date.now();
     });
 
 
     socket.on('disconnect',()=>{
-        let found_object = players.find(obj => obj.hasOwnProperty(clientId));
-        players.splice(players.indexOf(found_object), 1);
-        ids[clientId] = false;
+        players[clientId] = null;
         console.log(clientId, 'has disconnected');
         io.emit('update', players);
     })
@@ -428,7 +415,7 @@ function show_fps(delta){
     stack += delta;
     c++;
     if (stack >= 1000){
-        console.log('fps :', c);
+        //console.log('fps :', c);
         stack = 0;
         c = 0;
     }
