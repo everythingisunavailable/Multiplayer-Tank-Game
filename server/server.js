@@ -9,15 +9,17 @@ const io = new Server(server);
 
 app.use(express.static("../public/")); // Serve client files from "public" folder
 
-const THICKNESS = 10;
+const THICKNESS = 20;
 const WIDTH = 1536;
 const HEIGHT = 703;
 let players = {};
+let bullets = {};
+
 let potential_spawns = [
-    {x: 50, y: 50, taken: false},
-    {x: WIDTH - 100, y: 50, taken: false},
-    {x: 50, y: HEIGHT - 50, taken: false},
-    {x: WIDTH - 100, y: HEIGHT - 50, taken: false},
+    {x: 80, y: 80, taken: false},
+    {x: WIDTH - 100, y: 80, taken: false},
+    {x: 80, y: HEIGHT - 80, taken: false},
+    {x: WIDTH - 100, y: HEIGHT - 80, taken: false},
  ]
 class bullet{
     size;
@@ -27,7 +29,7 @@ class bullet{
     v_speed;
     v_a;
     h_a;
-    last_time;
+    time_since;
     BULLET_TIME;
     shooting;
     angle;
@@ -37,26 +39,24 @@ class bullet{
     constructor(tank){
         this.size = 7;
         this.y = tank.y - (this.size / 2) + tank.height/2;
-        this.x = tank.x - (this.size / 2) + tank.width + this.size;
+        this.x = tank.x + tank.width + this.size + 5;
+        this.rotate(tank);
         this.h_a = 4;
         this.v_a = 4;
         this.h_speed = 0;
         this.v_speed = 0;
         this.angle = tank.angle;
         
-        this.last_time = Date.now();
+        this.time_since = 0;
         this.BULLET_TIME = 4000;
-        this.shooting = false;
 
         this.va = { x: this.x, y: this.y };
         this.vb = { x: this.x + this.size, y: this.y };
         this.vc = { x: this.x + this.size, y: this.y + this.size };
         this.vd = { x: this.x, y: this.y + this.size };
 
-        this.collidable = false;
-        this.collision_activation_time = 160;
     }
-    /*
+    
     rotate(tank){
         let cx = tank.x + tank.width / 2;
         let cy = tank.y + tank.height / 2;
@@ -68,44 +68,17 @@ class bullet{
         this.x = (relX * cosA - relY * sinA) + cx;
         this.y = (relX * sinA + relY * cosA) + cy;
     }
-    */
+    
 
-    move(direction, tank, delta, map){  
-        this.update_vertices(map);  
+    move(delta, map){  
+        this.update_vertices();  
         this.collides(map);
-        if(direction.shoot &&
-        Math.abs(this.x - (tank.x - (this.size / 2) + (tank.width / 2))) <= 5 &&
-        Math.abs(this.y - (tank.y - (this.size / 2) + (tank.height / 2))) <= 5 ) this.shooting = true;
 
-        this.collidable = false;
-        let current_time = Date.now();
-        let time_elapsed = current_time - this.last_time;
-        if (this.shooting && time_elapsed <= this.BULLET_TIME){
-            this.h_speed = Math.cos(this.angle) * this.h_a;
-            this.v_speed = Math.sin(this.angle) * this.v_a;
-            this.x += this.h_speed * delta;
-            this.y += this.v_speed * delta;
-
-            //make it collidable after it leaves the tank
-            if (time_elapsed >= this.collision_activation_time) {
-                this.collidable = true;
-            }
-        }
-        else{
-            this.reset(tank);            
-        }
+        this.h_speed = Math.cos(this.angle) * this.h_a;
+        this.v_speed = Math.sin(this.angle) * this.v_a;
+        this.x += this.h_speed * delta;
+        this.y += this.v_speed * delta;
     }
-
-    reset(tank){
-        this.collidable = false;
-        this.shooting = false;
-        this.last_time = Date.now();
-        this.x = tank.x - (this.size / 2) + (tank.width / 2) ;
-        this.y = tank.y - (this.size / 2) + (tank.height / 2);
-        this.angle = tank.angle;
-        this.h_a = 4;
-        this.v_a = 4;
-    };
 
     update_vertices(){
         this.va = { x: this.x, y: this.y };
@@ -171,7 +144,7 @@ class tank {
         this.angle = 0;
         this.a = 2;
         this.r_speed = 0.05;
-        this.bullet = new bullet(this);
+        //this.bullet = new bullet(this);
 
         this.va = { x: this.x, y: this.y };
         this.vb = { x: this.x + this.width, y: this.y };
@@ -188,6 +161,9 @@ class tank {
             bottom: false, 
             shoot: false
         };
+
+        this.bullet_timeout = 4000;
+        this.cur_bullet_time = 4000;
     }
     move(direction, delta, map, players) {
         if (this.angle > Math.PI * 2 || this.angle < -Math.PI * 2) this.angle = 0;
@@ -203,16 +179,14 @@ class tank {
             this.h_speed = 0;
             this.v_speed = 0;
         }
-
         
         this.x += this.h_speed;
         this.y += this.v_speed;
         this.update_vertices();
-
-        this.bullet.move(direction, this, delta, map);
-
+        
         this.check_collisions(map, players);
     }
+    
 
     update_vertices() {
         let cx = this.x + this.width / 2;
@@ -257,21 +231,19 @@ class tank {
         
         
         //player bullets
-        for (let clientId in players){
-            if (players[clientId]){
-                let player = players[clientId];
-
-                console.log(player.bullet.collidable);
-                
+        for (let clientId in bullets){
+            if (bullets[clientId]){
+                let bullet = bullets[clientId];
 
                 if (
-                    player.bullet.va.x > this.x + this.width + this.collision_checker_radius ||
-                    player.bullet.vb.x < this.x - this.collision_checker_radius ||
-                    player.bullet.va.y > this.y + this.height + this.collision_checker_radius ||
-                    player.bullet.vd.y < this.y - this.collision_checker_radius
+                    bullet.va.x > this.x + this.width + this.collision_checker_radius ||
+                    bullet.vb.x < this.x - this.collision_checker_radius ||
+                    bullet.va.y > this.y + this.height + this.collision_checker_radius ||
+                    bullet.vd.y < this.y - this.collision_checker_radius
                 ) return;
-                if(this.collides(player.bullet) && player.bullet.collidable){
-                    player.bullet.reset(player);
+                if(this.collides(bullet)){
+                    players[clientId].cur_bullet_time = players[clientId].bullet_timeout + 1;
+                    delete bullets[clientId];
                     this.died = true;
                 };
             }
@@ -408,6 +380,7 @@ let map = [
 io.on("connection", (socket) => {
     let clientId = socket.handshake.query.clientId.toString();
     
+    
     if (!players[clientId]) players[clientId] = new tank();
     
     console.log(Object.keys(players).length);
@@ -420,16 +393,16 @@ io.on("connection", (socket) => {
     //emit map
     socket.emit('map', map);
 
-    //update player to all
-    socket.on('movement', (dir)=>{
+    //update player to all if game has not started
+    socket.on('movement', (dir)=> {
         if (players[clientId]) players[clientId].direction = dir;
     });
 
-    socket.on('disconnect',()=>{
+    socket.on('disconnect',()=> {
         delete players[clientId];
         console.log(clientId, 'has disconnected');
         io.emit('update', players);
-    })
+    });
 });
 
 server.listen(3000, () => {
@@ -442,14 +415,44 @@ function update(){
     let delta = (Date.now() - last_time) / 10;
 
     for (let clientId in players){
-        if (players[clientId] && players[clientId].died){ players[clientId] = null, check_players(players);}
-        else if (players[clientId]) players[clientId].move(players[clientId].direction, delta, map, players);
+        if (players[clientId] && players[clientId].died){ players[clientId] = null; check_players(players);}
+        else if (players[clientId]) {
+            players[clientId].move(players[clientId].direction, delta, map, players);
+            try_shoot(clientId, delta, map);
+        }
     }
 
     show_fps();
     last_time = Date.now();
     //emit to all
-    io.emit('update', players);
+    io.emit('update', [players, bullets]);
+}
+
+function try_shoot(clientId, delta, map){
+    let tank = players[clientId];
+    
+    if (tank.direction.shoot && tank.cur_bullet_time >= tank.bullet_timeout) {
+        
+        bullets[clientId] = new bullet(tank);
+        tank.cur_bullet_time = 0;
+    }
+    if (tank.cur_bullet_time <= tank.bullet_timeout) {
+        tank.cur_bullet_time += (delta * 10);
+    }
+
+    let n_bullet = bullets[clientId];
+    
+    //if enough time passed, despawn
+    if (n_bullet && n_bullet.time_since >= n_bullet.BULLET_TIME) {
+        delete bullets[clientId];
+    }
+    if (n_bullet) {
+        n_bullet.time_since += (delta * 10);
+
+        //update bullet
+        n_bullet.move( delta, map);
+    }
+    
 }
 
 function are_all_dead(players){//...but one
@@ -484,9 +487,9 @@ function reset_game(players){
     console.log('game restarted');
 }
 
+
 let lastTime = Date.now();
 let frameCount = 0;
-
 function show_fps() {
     frameCount++;
     let currentTime = Date.now();
@@ -494,7 +497,7 @@ function show_fps() {
 
     // Only update FPS once per second
     if (elapsedTime >= 1000) {
-        console.log('FPS: ', frameCount);
+        //console.log('FPS: ', frameCount);
         lastTime = currentTime;
         frameCount = 0; 
     }

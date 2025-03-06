@@ -7,9 +7,10 @@ const draw = canvas.getContext('2d');
 let map_array = null;
 
 //players is a dictionary
-function draw_component(players){
+function draw_component(players_and_bullets){
     draw.clearRect(0, 0, WIDTH, HEIGHT);
-
+    let players = players_and_bullets[0];
+    let bullets = players_and_bullets[1];
     if (!players) {console.log('players is empty');return};
     if (!map_array) {console.log('map is empty');return};
     map_array.forEach(segment =>{
@@ -28,13 +29,16 @@ function draw_component(players){
             draw.fillRect(-tank.width/2, -tank.height/2, tank.width, tank.height);
             draw.fillRect(-tank.width/2, -tank.height/2 + tank.height * 0.35, tank.width*1.3, tank.height * 0.3);
     
-            draw.restore(); //restore to previous
-    
-            //draw bullet
-            draw.fillRect(tank.bullet.x, tank.bullet.y, tank.bullet.size, tank.bullet.size);
+            draw.restore(); //restore to previous        
         };
     }
+
+    for (let playerId in bullets){
+        let bullet = bullets[playerId];
+        draw.fillRect(bullet.x, bullet.y, bullet.size, bullet.size);
+    }
 }
+
 
 let direction = {
     left: false,
@@ -62,8 +66,8 @@ socket.on("connect", () => {
 socket.on('map', (map)=>{
     map_array = map;
 })
-socket.on('new_connection', (players)=>{
-    draw_component(players);
+socket.on('new_connection', (players_and_bullets)=>{
+    draw_component(players_and_bullets);
 });
 socket.on('update', (players)=>{
     draw_component(players);
