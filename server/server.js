@@ -9,7 +9,16 @@ const io = new Server(server);
 
 app.use(express.static("../public/")); // Serve client files from "public" folder
 
+const THICKNESS = 10;
+const WIDTH = 1536;
+const HEIGHT = 703;
 let players = {};
+let potential_spawns = [
+    {x: 50, y: 50, taken: false},
+    {x: WIDTH - 100, y: 50, taken: false},
+    {x: 50, y: HEIGHT - 50, taken: false},
+    {x: WIDTH - 100, y: HEIGHT - 50, taken: false},
+ ]
 class bullet{
     size;
     x;
@@ -135,8 +144,28 @@ class tank {
     constructor() {
         this.height = 35;
         this.width = 40;
-        this.x = 200;
-        this.y = 100;
+
+        //generate random spawn point
+        let found = false;
+        let count = 0;
+        while (!found){
+            let spawn = Math.round(Math.random() * 3); // get random index
+            if (!potential_spawns[spawn].taken) {
+                this.x = potential_spawns[spawn].x;
+                this.y = potential_spawns[spawn].y;
+                potential_spawns[spawn].taken = true;
+                found = true;
+                break;
+            }
+            count ++;
+            if (count > potential_spawns.length) {
+                this.x = WIDTH / 2;
+                this.y = HEIGHT / 2;
+                found = true;
+                break;
+            }
+        }
+
         this.h_speed = 0;
         this.v_speed = 0;
         this.angle = 0;
@@ -149,10 +178,18 @@ class tank {
         this.vc = { x: this.x + this.width, y: this.y + this.height };
         this.vd = { x: this.x, y: this.y + this.height };
         
-        this.collision_checker_radius = 10;
+        this.collision_checker_radius = 100;
         this.died = false;
+        
+        this.direction = {
+            left: false,
+            right: false,
+            top: false,
+            bottom: false, 
+            shoot: false
+        };
     }
-    move(direction, delta, map) {
+    move(direction, delta, map, players) {
         if (this.angle > Math.PI * 2 || this.angle < -Math.PI * 2) this.angle = 0;
         if (direction.left) this.angle -= this.r_speed * delta;
         if (direction.right) this.angle += this.r_speed * delta;
@@ -217,10 +254,16 @@ class tank {
             this.resolveCollision(segment);
         });
 
+        
+        
         //player bullets
         for (let clientId in players){
             if (players[clientId]){
                 let player = players[clientId];
+
+                console.log(player.bullet.collidable);
+                
+
                 if (
                     player.bullet.va.x > this.x + this.width + this.collision_checker_radius ||
                     player.bullet.vb.x < this.x - this.collision_checker_radius ||
@@ -348,12 +391,6 @@ class segment{
     }
 }
 
-
-
-const THICKNESS = 10;
-const WIDTH = 1536;
-const HEIGHT = 703;
-
 let map = [
     //map edges
     new segment(0, 0, THICKNESS, HEIGHT),  
@@ -367,40 +404,29 @@ let map = [
     new segment (0, 500, 300, THICKNESS),
 ];
 
+
 io.on("connection", (socket) => {
     let clientId = socket.handshake.query.clientId.toString();
     
-    if (!players[clientId]) {
-        players[clientId] = new tank();
-    }
+    if (!players[clientId]) players[clientId] = new tank();
+    
     console.log(Object.keys(players).length);
     
-
     socket.removeAllListeners("movement");
     
     //emit player position
     io.emit('new_connection', players);
+    
     //emit map
     socket.emit('map', map);
 
-    let last_time = Date.now();
-    socket.on('movement', (direction)=>{
-        let delta = (Date.now() - last_time) / 10;
-
-
-        //player state (dead or alive)
-        if (players[clientId] && players[clientId].died){ players[clientId] = null, console.log(clientId, "has been slayen", players);}
-        else if (players[clientId]) players[clientId].move(direction, delta, map);
-        
-
-        io.emit('update', players);
-        show_fps(delta*10);
-        last_time = Date.now();
+    //update player to all
+    socket.on('movement', (dir)=>{
+        if (players[clientId]) players[clientId].direction = dir;
     });
 
-
     socket.on('disconnect',()=>{
-        players[clientId] = null;
+        delete players[clientId];
         console.log(clientId, 'has disconnected');
         io.emit('update', players);
     })
@@ -409,14 +435,67 @@ io.on("connection", (socket) => {
 server.listen(3000, () => {
     console.log("Server running on http://localhost:3000");
 });
-let stack = 0;
-let c = 0;
-function show_fps(delta){
-    stack += delta;
-    c++;
-    if (stack >= 1000){
-        //console.log('fps :', c);
-        stack = 0;
-        c = 0;
+
+setInterval(update, 1000/70);
+let last_time = Date.now();
+function update(){
+    let delta = (Date.now() - last_time) / 10;
+
+    for (let clientId in players){
+        if (players[clientId] && players[clientId].died){ players[clientId] = null, check_players(players);}
+        else if (players[clientId]) players[clientId].move(players[clientId].direction, delta, map, players);
+    }
+
+    show_fps();
+    last_time = Date.now();
+    //emit to all
+    io.emit('update', players);
+}
+
+function are_all_dead(players){//...but one
+    let alive = 0;
+    for (let player in players){
+        if (players[player]){
+            alive++;
+        };
+    }
+    
+    if (alive <= 1) return true;
+
+    return false;
+}
+
+function check_players(players){
+    //restart game if necessary
+    if (are_all_dead(players)) {
+        reset_game(players);
+    }
+}
+function reset_game(players){
+    //reset spawns 
+    potential_spawns.forEach( element => {
+        element.taken = false;
+    });
+
+    //reset players
+    for (let clientId in players){
+        players[clientId] = new tank();
+    }
+    console.log('game restarted');
+}
+
+let lastTime = Date.now();
+let frameCount = 0;
+
+function show_fps() {
+    frameCount++;
+    let currentTime = Date.now();
+    let elapsedTime = currentTime - lastTime;
+
+    // Only update FPS once per second
+    if (elapsedTime >= 1000) {
+        console.log('FPS: ', frameCount);
+        lastTime = currentTime;
+        frameCount = 0; 
     }
 }

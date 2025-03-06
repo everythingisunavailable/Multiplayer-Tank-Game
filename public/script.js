@@ -49,7 +49,6 @@ const socket = io({
         clientId: sessionStorage.getItem("clientId") || generateClientId()
     }
 });
-update();
 
 function generateClientId() {
     const id = Math.random().toString(36).substring(2, 9);
@@ -94,6 +93,7 @@ window.addEventListener('keydown', (event)=>{
         direction.shoot = true;
     }
 
+    socket.emit('movement', direction);
 });
 window.addEventListener('keyup', (event)=>{
     if (event.key == 'w' || event.key == 'W') direction.forwards = false;    
@@ -101,9 +101,6 @@ window.addEventListener('keyup', (event)=>{
     if (event.key == 'a' || event.key == 'A') direction.left = false;
     if (event.key == 'd' || event.key == 'D') direction.right = false;
     if (event.key == 'q' || event.key == 'f') direction.shoot = false;
-});
 
-setInterval(update, 1000/70);
-function update(){
     socket.emit('movement', direction);
-}
+});
