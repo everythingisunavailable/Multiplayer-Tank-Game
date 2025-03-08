@@ -9,9 +9,11 @@ const io = new Server(server);
 
 app.use(express.static("../public/")); // Serve client files from "public" folder
 
-const THICKNESS = 20;
+//map 
+const THICKNESS = 15;
 const WIDTH = 1536;
 const HEIGHT = 703;
+
 let players = {};
 let bullets = {};
 
@@ -20,7 +22,16 @@ let potential_spawns = [
     {x: WIDTH - 100, y: 80, taken: false},
     {x: 80, y: HEIGHT - 80, taken: false},
     {x: WIDTH - 100, y: HEIGHT - 80, taken: false},
- ]
+];
+
+let colors = [
+    {color: 'red', taken_by: null},
+    {color: 'blue', taken_by: null},
+    {color: 'yellow', taken_by: null},
+    {color: 'green', taken_by: null},
+    {color: 'purple', taken_by: null},
+    {color: 'cyan', taken_by: null},
+]
 class bullet{
     size;
     x;
@@ -39,22 +50,24 @@ class bullet{
     constructor(tank){
         this.size = 7;
         this.y = tank.y - (this.size / 2) + tank.height/2;
-        this.x = tank.x + tank.width + this.size + 5;
+        this.x = tank.x + tank.width;
         this.rotate(tank);
-        this.h_a = 4;
-        this.v_a = 4;
+        this.h_a = 5;
+        this.v_a = 5;
         this.h_speed = 0;
         this.v_speed = 0;
         this.angle = tank.angle;
         
         this.time_since = 0;
         this.BULLET_TIME = 4000;
+        
+        this.collidable = false;
+        this.collision_activation_time = 30;
 
         this.va = { x: this.x, y: this.y };
         this.vb = { x: this.x + this.size, y: this.y };
         this.vc = { x: this.x + this.size, y: this.y + this.size };
         this.vd = { x: this.x, y: this.y + this.size };
-
     }
     
     rotate(tank){
@@ -62,8 +75,8 @@ class bullet{
         let cy = tank.y + tank.height / 2;
         let sinA = Math.sin(tank.angle);
         let cosA = Math.cos(tank.angle);
-        let relX = this.x - cx;
-        let relY = this.y - cy;
+        let relX = this.x - cx + this.size/2;
+        let relY = this.y - cy + this.size/2;
         
         this.x = (relX * cosA - relY * sinA) + cx;
         this.y = (relX * sinA + relY * cosA) + cy;
@@ -114,7 +127,7 @@ class bullet{
 }
 
 class tank {
-    constructor() {
+    constructor(color) {
         this.height = 35;
         this.width = 40;
 
@@ -164,6 +177,8 @@ class tank {
 
         this.bullet_timeout = 4000;
         this.cur_bullet_time = 4000;
+
+        this.color = color;
     }
     move(direction, delta, map, players) {
         if (this.angle > Math.PI * 2 || this.angle < -Math.PI * 2) this.angle = 0;
@@ -241,10 +256,10 @@ class tank {
                     bullet.va.y > this.y + this.height + this.collision_checker_radius ||
                     bullet.vd.y < this.y - this.collision_checker_radius
                 ) return;
-                if(this.collides(bullet)){
-                    players[clientId].cur_bullet_time = players[clientId].bullet_timeout + 1;
+                if(this.collides(bullet) && bullet.collidable){
                     delete bullets[clientId];
                     this.died = true;
+                    players[clientId].cur_bullet_time = players[clientId].bullet_timeout;
                 };
             }
         }
@@ -370,20 +385,40 @@ let map = [
     new segment(WIDTH-THICKNESS, 0, THICKNESS, HEIGHT),  
     new segment(0, HEIGHT-THICKNESS, WIDTH, THICKNESS),
 
-    //other
-    new segment (300, 0, THICKNESS, 300),
-    new segment (600, 0, THICKNESS, 300),
-    new segment (0, 500, 300, THICKNESS),
+    //corner segments
+    new segment (200, 0, THICKNESS, 200),
+    new segment (0, HEIGHT - 200, 200, THICKNESS),
+    new segment (WIDTH - 200 , 200, 200, THICKNESS),
+    new segment (WIDTH - 200, HEIGHT-200, THICKNESS, 200),
+    
+    //others
+    new segment (350, 100, THICKNESS, 200),
+    new segment (100, 300, 250 + THICKNESS, THICKNESS),
+    new segment (350, HEIGHT - 300, THICKNESS, 200),
+    new segment (100, 400, 250 + THICKNESS, THICKNESS),
+    new segment (WIDTH - 350, 100, THICKNESS, 200),
+    new segment (WIDTH - 350, 300, 250, THICKNESS),
+    new segment (WIDTH - 350, HEIGHT - 300, THICKNESS, 200),
+    new segment (WIDTH - 350, 400, 250, THICKNESS),
+    new segment (WIDTH / 2 - 200, 200, 400, THICKNESS),
+    new segment (WIDTH / 2 - 200, HEIGHT - 200, 400, THICKNESS),
+    new segment (WIDTH/2, 200, THICKNESS, HEIGHT - 400),
+    new segment ( 450, HEIGHT / 2, 200, THICKNESS),
+    new segment ( WIDTH - 650, HEIGHT / 2, 200, THICKNESS),
+    new segment ( 650, 0, THICKNESS, 100),
+    new segment ( 650, HEIGHT - 100, THICKNESS, 100),
+    new segment ( WIDTH - 650, 0, THICKNESS, 100),
+    new segment ( WIDTH - 650, HEIGHT - 100, THICKNESS, 100),
 ];
 
 
 io.on("connection", (socket) => {
     let clientId = socket.handshake.query.clientId.toString();
     
+    let color = get_color(clientId);
+    if (!players[clientId]) players[clientId] = new tank(color);
     
-    if (!players[clientId]) players[clientId] = new tank();
-    
-    console.log(Object.keys(players).length);
+    console.log('players : ', Object.keys(players).length);
     
     socket.removeAllListeners("movement");
     
@@ -439,9 +474,12 @@ function try_shoot(clientId, delta, map){
     if (tank.cur_bullet_time <= tank.bullet_timeout) {
         tank.cur_bullet_time += (delta * 10);
     }
-
-    let n_bullet = bullets[clientId];
     
+    let n_bullet = bullets[clientId];
+    //make bullet collidable after some time
+    if (n_bullet && n_bullet.time_since >= n_bullet.collision_activation_time) {
+        bullets[clientId].collidable = true;
+    }
     //if enough time passed, despawn
     if (n_bullet && n_bullet.time_since >= n_bullet.BULLET_TIME) {
         delete bullets[clientId];
@@ -471,7 +509,7 @@ function are_all_dead(players){//...but one
 function check_players(players){
     //restart game if necessary
     if (are_all_dead(players)) {
-        reset_game(players);
+        setTimeout(()=> {reset_game(players)}, 1000);
     }
 }
 function reset_game(players){
@@ -480,13 +518,31 @@ function reset_game(players){
         element.taken = false;
     });
 
+
     //reset players
     for (let clientId in players){
-        players[clientId] = new tank();
+        let color = get_color(clientId);
+        players[clientId] = new tank(color);
     }
     console.log('game restarted');
 }
 
+function get_color(clientId){
+    for ( let i = 0; i < colors.length; i++){
+        if (colors[i].taken_by == clientId) {
+            return colors[i].color;
+        }
+    }
+
+    for ( let i = 0; i < colors.length; i++){
+        if (colors[i].taken_by == null) {
+            colors[i].taken_by = clientId;
+            return colors[i].color;
+        }
+    }
+
+    return 'black'; //default fallback color
+}
 
 let lastTime = Date.now();
 let frameCount = 0;

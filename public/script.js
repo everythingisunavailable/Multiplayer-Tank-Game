@@ -14,12 +14,14 @@ function draw_component(players_and_bullets){
     if (!players) {console.log('players is empty');return};
     if (!map_array) {console.log('map is empty');return};
     map_array.forEach(segment =>{
+        draw.fillStyle = 'black';
         draw.fillRect(segment.x, segment.y, segment.width, segment.height);
     })
 
     for (let playerId in players){
         let tank = players[playerId];
-        if (tank){
+        if (tank){            
+            draw.fillStyle = tank.color;
             draw.save(); //save state
             //i have to translate the object i want to draw to the origin and then back
             draw.translate(tank.x + tank.width/2, tank.y + tank.height/2);
@@ -35,6 +37,7 @@ function draw_component(players_and_bullets){
 
     for (let playerId in bullets){
         let bullet = bullets[playerId];
+        draw.fillStyle = 'black';
         draw.fillRect(bullet.x, bullet.y, bullet.size, bullet.size);
     }
 }
