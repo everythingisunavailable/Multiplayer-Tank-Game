@@ -259,7 +259,12 @@ class tank {
                 if(this.collides(bullet) && bullet.collidable){
                     delete bullets[clientId];
                     this.died = true;
-                    players[clientId].cur_bullet_time = players[clientId].bullet_timeout;
+                    if (this == players[clientId]) {
+                        this.cur_bullet_time = this.bullet_timeout;
+                    }
+                    else{
+                        players[clientId].cur_bullet_time = players[clientId].bullet_timeout;
+                    }
                 };
             }
         }
@@ -518,6 +523,8 @@ function reset_game(players){
         element.taken = false;
     });
 
+    //reset bullets
+    bullets = {};
 
     //reset players
     for (let clientId in players){
