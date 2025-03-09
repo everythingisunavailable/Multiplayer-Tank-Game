@@ -111,3 +111,115 @@ window.addEventListener('keyup', (event)=>{
 
     socket.emit('movement', direction);
 });
+
+//mobile controls
+function bind_mobile_controls(){
+    let forwards = document.querySelector('.forwards');
+    let backwards = document.querySelector('.backwards');
+    let left = document.querySelector('.left');
+    let right = document.querySelector('.right');
+
+    //remove context menu pop up when holding a button
+    forwards.addEventListener('contextmenu', (event)=>{
+        event.preventDefault();
+    });
+    backwards.addEventListener('contextmenu', (event)=>{
+        event.preventDefault();
+    });
+    left.addEventListener('contextmenu', (event)=>{
+        event.preventDefault();
+    });
+    right.addEventListener('contextmenu', (event)=>{
+        event.preventDefault();
+    });
+
+    forwards.addEventListener('touchstart', (event)=>{
+        direction.forwards = true;
+        direction.backwards = false;
+        select_element(forwards);
+        socket.emit('movement', direction);
+    });
+    backwards.addEventListener('touchstart', (event)=>{
+        direction.forwards = false;
+        direction.backwards = true;
+        select_element(backwards);
+        socket.emit('movement', direction);
+    });
+    left.addEventListener('touchstart', (event)=>{
+        direction.left = true;
+        direction.right = false;
+        select_element(left);
+        socket.emit('movement', direction);
+    });
+    right.addEventListener('touchstart', (event)=>{
+        direction.right = true;
+        direction.left = false;
+        select_element(right);
+        socket.emit('movement', direction);
+    });
+    //on canvas touch shoot
+    canvas.addEventListener('touchstart', (event)=>{
+        direction.shoot = true;
+        socket.emit('movement', direction);
+    });
+
+
+    forwards.addEventListener("touchend", (event) => {
+      direction.forwards = false;
+      deselect_element(forwards);
+      socket.emit("movement", direction);
+    });
+    backwards.addEventListener("touchend", (event) => {
+      direction.backwards = false;
+      deselect_element(backwards);
+      socket.emit("movement", direction);
+    });
+    left.addEventListener("touchend", (event) => {
+      direction.left = false;
+      deselect_element(left);
+      socket.emit("movement", direction);
+    });
+    right.addEventListener("touchend", (event) => {
+      direction.right = false;
+      deselect_element(right);
+      socket.emit("movement", direction);
+    });
+    canvas.addEventListener("touchend", (event) => {
+      direction.shoot = false;
+      socket.emit("movement", direction);
+    });
+
+    forwards.addEventListener("touchcancel", (event) => {
+      direction.forwards = false;
+      socket.emit("movement", direction);
+    });
+    backwards.addEventListener("touchcancel", (event) => {
+      direction.backwards = false;
+      socket.emit("movement", direction);
+    });
+    left.addEventListener("touchcancel", (event) => {
+      direction.left = false;
+      socket.emit("movement", direction);
+    });
+    right.addEventListener("touchcancel", (event) => {
+      direction.right = false;
+      socket.emit("movement", direction);
+    });
+    canvas.addEventListener("touchcancel", (event) => {
+      direction.shoot = false;
+      socket.emit("movement", direction);
+    });
+}
+function select_element(element){
+    if(element.classList.contains('selected')) return;
+    element.classList.add('selected');
+}
+function deselect_element(element){
+    if(element.classList.contains('selected')){
+        element.classList.remove('selected');
+    };
+}
+
+window.onload = ()=>{
+    bind_mobile_controls();
+}
