@@ -18,8 +18,17 @@ The hardest part was learning and implementing the Separating Axel Theorem for c
 
 
 ## Controls
+
 - Keyboard : w, a, s, d to move, q or f to shoot.
 - Mobile : onscreen buttons to move, tap on the empty space to shoot.
+
+
+## Abilities gained by pickups
+
+- increased firerate
+- wall piercing bullets
+- super speed
+
 
 ## Run Locally
 
