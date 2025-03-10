@@ -7,20 +7,22 @@ const draw = canvas.getContext('2d');
 let map_array = null;
 
 //players is a dictionary
-function draw_component(players_and_bullets){
+function draw_component(objects){
     draw.clearRect(0, 0, WIDTH, HEIGHT);
-    let players = players_and_bullets[0];
-    let bullets = players_and_bullets[1];
+    let players = objects[0];
+    let bullets = objects[1];
+    let pickups = objects[2];
+
     if (!players) {console.log('players is empty');return};
     if (!map_array) {console.log('map is empty');return};
 
-    //draw map
+    //draw map (array)
     map_array.forEach(segment =>{
         draw.fillStyle = 'black';
         draw.fillRect(segment.x, segment.y, segment.width, segment.height);
     });
 
-    //draw bullets
+    //draw bullets (dictionary)
     for (let playerId in bullets){
         let bullet = bullets[playerId];
         draw.beginPath();
@@ -29,7 +31,7 @@ function draw_component(players_and_bullets){
         draw.fill();
     }
 
-    //draw players
+    //draw players (dictionary)
     for (let playerId in players){
         let tank = players[playerId];
         if (tank){            
@@ -46,6 +48,16 @@ function draw_component(players_and_bullets){
             draw.restore(); //restore to previous        
         };
     }
+
+    //draw pickups (array)
+    pickups.forEach( element => {
+        //TODO : REMOVE THIS
+        if (element.type == 'speed'){ draw.fillStyle = 'cyan'}
+        else if (element.type == 'firerate'){ draw.fillStyle = 'orange'}
+        else {draw.fillStyle = 'black'};
+        draw.fillRect(element.x, element.y, element.size, element.size);
+    });
+    
 }
 
 
@@ -75,8 +87,8 @@ socket.on("connect", () => {
 socket.on('map', (map)=>{
     map_array = map;
 })
-socket.on('new_connection', (players_and_bullets)=>{
-    draw_component(players_and_bullets);
+socket.on('new_connection', (objects)=>{
+    draw_component(objects);
 });
 socket.on('update', (players)=>{
     draw_component(players);

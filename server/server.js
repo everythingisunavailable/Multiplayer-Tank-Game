@@ -16,6 +16,7 @@ const HEIGHT = 703;
 
 let players = {};
 let bullets = {};
+let pickups = [];
 
 let potential_spawns = [
     {x: 80, y: 80, taken: false},
@@ -31,7 +32,21 @@ let colors = [
     {color: 'green', taken_by: null},
     {color: 'purple', taken_by: null},
     {color: 'cyan', taken_by: null},
-]
+];
+
+class pickup{
+    x;
+    y;
+    size;
+    type;
+    constructor(x, y, type){
+        this.x = x;
+        this.y = y;
+        this.size = 50;
+        this.type = type;
+    }
+}
+
 class bullet{
     size;
     x;
@@ -155,9 +170,10 @@ class tank {
         this.h_speed = 0;
         this.v_speed = 0;
         this.angle = 0;
+        this.A = 2;
         this.a = 2;
         this.r_speed = 0.05;
-        //this.bullet = new bullet(this);
+        
 
         this.va = { x: this.x, y: this.y };
         this.vb = { x: this.x + this.width, y: this.y };
@@ -176,9 +192,22 @@ class tank {
         };
 
         this.bullet_timeout = 4000;
+        this.BULLET_TIMEOUT = 4000;
         this.cur_bullet_time = 4000;
 
         this.color = color;
+
+
+        //abilities from pickups
+        this.ability = {
+            speed: false,
+            pierce: false,
+            firerate: false,
+            laser: false,
+        };
+        this.ABILITY_TIMEOUT = 3000;
+        this.cur_ability_timer = 0;
+
     }
     move(direction, delta, map, players) {
         if (this.angle > Math.PI * 2 || this.angle < -Math.PI * 2) this.angle = 0;
@@ -199,7 +228,8 @@ class tank {
         this.y += this.v_speed;
         this.update_vertices();
         
-        this.check_collisions(map, players);
+        this.check_collisions(map, players, pickups);
+        this.ability_handler(delta * 10);
     }
     
 
@@ -230,21 +260,52 @@ class tank {
         this.vd.y = (relX * sinA + relY * cosA) + cy;
     }
 
-    check_collisions(map, players) {
+    activate_ability(type){
+        for (let key in this.ability){
+
+            this.ability[key] = false;
+
+            if (key == type) {
+                this.ability[key] = true;
+                //reset ability timer
+                this.cur_ability_timer = 0;
+            }
+        }
+    }
+
+    ability_handler(delta){
+        if (this.cur_ability_timer < this.ABILITY_TIMEOUT) {
+            this.cur_ability_timer += delta;
+        }
+        else{
+            //reset abilities
+            for (let key in this.ability){
+                this.ability[key] = false;
+            }
+        }
+
+        if (this.ability.speed) {this.a = 5;}
+        else {this.a = this.A;}
+        if (this.ability.firerate) {this.bullet_timeout = 100;}
+        else {this.bullet_timeout = this.BULLET_TIMEOUT;}
+        
+    }
+    check_collisions(map, players, pickups) {
         //map segments
-        map.forEach(segment => {
+        for ( let i = 0; i < map.length; i++){
+            let segment = map[i];
             if (
                 segment.va.x > this.x + this.width + this.collision_checker_radius ||
                 segment.vb.x < this.x - this.collision_checker_radius ||
                 segment.va.y > this.y + this.height + this.collision_checker_radius ||
                 segment.vd.y < this.y - this.collision_checker_radius
-            ) return;
+            ) continue;
             
             this.resolveCollision(segment);
-        });
+        };
 
         
-        
+        let bullet_id = '';
         //player bullets
         for (let clientId in bullets){
             if (bullets[clientId]){
@@ -255,9 +316,11 @@ class tank {
                     bullet.vb.x < this.x - this.collision_checker_radius ||
                     bullet.va.y > this.y + this.height + this.collision_checker_radius ||
                     bullet.vd.y < this.y - this.collision_checker_radius
-                ) return;
+                ) continue;
+
                 if(this.collides(bullet) && bullet.collidable){
-                    delete bullets[clientId];
+                    bullet_id = clientId;
+                    bullets[clientId] = 'to_be_deleted';
                     this.died = true;
                     if (this == players[clientId]) {
                         this.cur_bullet_time = this.bullet_timeout;
@@ -268,8 +331,31 @@ class tank {
                 };
             }
         }
+        if(bullets[bullet_id] == 'to_be_deleted') delete bullets[bullet_id];
+        // note : ^ could also set the value of bullet id here to null jsut to be sure
+
+        //pickups
+        let index_to_be_deleted = null;
+        for (let i = 0; i < pickups.length; i++){
+            let element = pickups[i];
+
+            if (
+                element.x > this.x + this.width ||
+                element.x + element.size < this.x ||
+                element.y > this.y + this.width ||
+                element.y + element.size < this.y
+            ) continue;
+
+            this.activate_ability(element.type);
+            index_to_be_deleted = i;
+        }
+        if (index_to_be_deleted != null) {
+            pickups.splice(index_to_be_deleted, 1);
+            index_to_be_deleted = null;
+        }
         
     }
+
 
     static project(vertices, axis) {
         let min = Infinity, max = -Infinity;
@@ -462,13 +548,15 @@ function update(){
         }
     }
 
+    try_spawn_pickups(delta * 10, map, pickups);
+
     show_fps();
     last_time = Date.now();
     //emit to all
-    io.emit('update', [players, bullets]);
+    io.emit('update', [players, bullets, pickups]);
 }
 
-function try_shoot(clientId, delta, map){
+function try_shoot(clientId, delta, map){ //THIS SHOULD BE A CLASS METHODDDD
     let tank = players[clientId];
     
     if (tank.direction.shoot && tank.cur_bullet_time >= tank.bullet_timeout) {
@@ -495,7 +583,53 @@ function try_shoot(clientId, delta, map){
         //update bullet
         n_bullet.move( delta, map);
     }
-    
+}
+
+
+let cur_pickup_time = 0;
+const PICKUP_SPAWN_TIME = 4000;
+const MAX_SPAWN_COUNT = 4;
+function try_spawn_pickups(delta, map, pickups){
+    if (cur_pickup_time >= PICKUP_SPAWN_TIME) {
+        //spawn here
+        spawn_pickup(map, pickups);
+        cur_pickup_time = 0;
+    }
+    if (pickups.length < MAX_SPAWN_COUNT) {
+        cur_pickup_time += delta;
+    }
+}
+function spawn_pickup(map, pickups){
+    let pickup_types = ['speed', 'firerate', 'piercing', 'laser'];
+    let index = Math.floor(Math.random() * pickup_types.length);
+    let type = pickup_types[index];
+
+    while(true){
+        let x = Math.round(Math.random() * WIDTH);
+        let y = Math.round(Math.random() * HEIGHT);
+        let temp_pickup = new pickup(x, y, type);
+
+        //check for collision
+        let collides_w_segment = false;
+        for ( let i = 0; i < map.length; i++){
+            let segment = map[i];
+            if (
+                !(segment.va.x > temp_pickup.x + temp_pickup.size ||
+                segment.vb.x < temp_pickup.x ||
+                segment.va.y > temp_pickup.y + temp_pickup.size ||
+                segment.vd.y < temp_pickup.y)
+            ){
+                collides_w_segment = true;
+                break;
+            }
+
+        }
+
+        if (!collides_w_segment) {
+            pickups.push(temp_pickup);
+            return;
+        }
+    }
 }
 
 function are_all_dead(players){//...but one
@@ -551,6 +685,7 @@ function get_color(clientId){
     return 'black'; //default fallback color
 }
 
+//fps
 let lastTime = Date.now();
 let frameCount = 0;
 function show_fps() {
