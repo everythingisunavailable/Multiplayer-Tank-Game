@@ -17,6 +17,10 @@ While building this project i learned about the practicallity of using websocket
 The hardest part was learning and implementing the Separating Axel Theorem for collision detection between convex polygons.
 
 
+## Controls
+- Keyboard : w, a, s, d to move, q or f to shoot.
+- Mobile : onscreen buttons to move, tap on the empty space to shoot.
+
 ## Run Locally
 
 Clone the project
