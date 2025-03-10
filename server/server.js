@@ -15,7 +15,7 @@ const WIDTH = 1536;
 const HEIGHT = 703;
 
 let players = {};
-let bullets = {};
+let bullets = [];
 let pickups = [];
 
 let potential_spawns = [
@@ -62,6 +62,8 @@ class bullet{
 
     collidable;
     collision_activation_time;
+
+    piercing;
     constructor(tank){
         this.size = 7;
         this.y = tank.y - (this.size / 2) + tank.height/2;
@@ -78,6 +80,8 @@ class bullet{
         
         this.collidable = false;
         this.collision_activation_time = 30;
+
+        this.piercing = tank.ability.pierce;
 
         this.va = { x: this.x, y: this.y };
         this.vb = { x: this.x + this.size, y: this.y };
@@ -98,9 +102,20 @@ class bullet{
     }
     
 
-    move(delta, map){  
+    move(delta, map){
+         //make bullet collidable after some time
+        if (this.time_since >= this.collision_activation_time) {
+            this.collidable = true;
+        }
+        //if enough time passed, despawn
+        if (this.time_since >= this.BULLET_TIME) {
+            bullets.splice(bullets.indexOf(this), 1);
+        }
+        this.time_since += (delta * 10);
+
         this.update_vertices();  
-        this.collides(map);
+        if (!this.piercing) this.collides(map);
+        
 
         this.h_speed = Math.cos(this.angle) * this.h_a;
         this.v_speed = Math.sin(this.angle) * this.v_a;
@@ -207,9 +222,10 @@ class tank {
         };
         this.ABILITY_TIMEOUT = 3000;
         this.cur_ability_timer = 0;
+        this.triggered_ability = false;
 
     }
-    move(direction, delta, map, players) {
+    move(direction, delta, map, players, bullets) {
         if (this.angle > Math.PI * 2 || this.angle < -Math.PI * 2) this.angle = 0;
         if (direction.left) this.angle -= this.r_speed * delta;
         if (direction.right) this.angle += this.r_speed * delta;
@@ -229,7 +245,8 @@ class tank {
         this.update_vertices();
         
         this.check_collisions(map, players, pickups);
-        this.ability_handler(delta * 10);
+        this.ability_handler(delta);
+        this.try_shoot(delta, bullets);
     }
     
 
@@ -274,22 +291,44 @@ class tank {
     }
 
     ability_handler(delta){
+        if (this.direction.shoot) {
+            this.triggered_ability = true;
+        }
         if (this.cur_ability_timer < this.ABILITY_TIMEOUT) {
-            this.cur_ability_timer += delta;
+            if (this.triggered_ability) {
+                this.cur_ability_timer += (delta * 10);
+            }
         }
         else{
             //reset abilities
             for (let key in this.ability){
                 this.ability[key] = false;
             }
+            this.triggered_ability = false;
+            this.cur_ability_timer = 0;
         }
 
-        if (this.ability.speed) {this.a = 5;}
-        else {this.a = this.A;}
-        if (this.ability.firerate) {this.bullet_timeout = 100;}
-        else {this.bullet_timeout = this.BULLET_TIMEOUT;}
-        
+        //speed
+        if (this.ability.speed) {
+            this.a = 5;
+            this.triggered_ability = true;
+        } else {
+            this.a = this.A;
+        }
+
+        //fast fire
+        if (this.ability.firerate) {
+            this.bullet_timeout = 100;
+            this.triggered_ability = false;
+        } else {
+            this.bullet_timeout = this.BULLET_TIMEOUT;
+        }
+
+        //piercing no need for code here
+
+        //TODO : laser
     }
+
     check_collisions(map, players, pickups) {
         //map segments
         for ( let i = 0; i < map.length; i++){
@@ -305,34 +344,23 @@ class tank {
         };
 
         
-        let bullet_id = '';
+        let tmp_bullets = [...bullets];
         //player bullets
-        for (let clientId in bullets){
-            if (bullets[clientId]){
-                let bullet = bullets[clientId];
+        for ( let i = 0; i < tmp_bullets.length; i++){
+            let bullet = tmp_bullets[i];
 
-                if (
-                    bullet.va.x > this.x + this.width + this.collision_checker_radius ||
-                    bullet.vb.x < this.x - this.collision_checker_radius ||
-                    bullet.va.y > this.y + this.height + this.collision_checker_radius ||
-                    bullet.vd.y < this.y - this.collision_checker_radius
-                ) continue;
+            if (
+                bullet.va.x > this.x + this.width + this.collision_checker_radius ||
+                bullet.vb.x < this.x - this.collision_checker_radius ||
+                bullet.va.y > this.y + this.height + this.collision_checker_radius ||
+                bullet.vd.y < this.y - this.collision_checker_radius
+            ) continue;
 
-                if(this.collides(bullet) && bullet.collidable){
-                    bullet_id = clientId;
-                    bullets[clientId] = 'to_be_deleted';
-                    this.died = true;
-                    if (this == players[clientId]) {
-                        this.cur_bullet_time = this.bullet_timeout;
-                    }
-                    else{
-                        players[clientId].cur_bullet_time = players[clientId].bullet_timeout;
-                    }
-                };
-            }
+            if(this.collides(bullet) && bullet.collidable){
+                bullets.splice(i, 1);
+                this.died = true;
+            };
         }
-        if(bullets[bullet_id] == 'to_be_deleted') delete bullets[bullet_id];
-        // note : ^ could also set the value of bullet id here to null jsut to be sure
 
         //pickups
         let index_to_be_deleted = null;
@@ -346,7 +374,7 @@ class tank {
                 element.y + element.size < this.y
             ) continue;
 
-            this.activate_ability(element.type);
+            this.activate_ability(element.type.toString());
             index_to_be_deleted = i;
         }
         if (index_to_be_deleted != null) {
@@ -443,6 +471,16 @@ class tank {
         this.update_vertices();
     }
 
+    try_shoot (delta, bullets){
+        if (this.direction.shoot && this.cur_bullet_time >= this.bullet_timeout) {
+            bullets.push(new bullet(this));
+            this.cur_bullet_time = 0;
+        }
+        if (this.cur_bullet_time <= this.bullet_timeout) {
+            this.cur_bullet_time += (delta * 10);
+        }
+    }
+
 }
 
 class segment{
@@ -532,7 +570,7 @@ io.on("connection", (socket) => {
 });
 
 server.listen(3000, () => {
-    console.log("Server running on http://localhost:3000");
+    console.log("Server running port 3000");
 });
 
 setInterval(update, 1000/70);
@@ -540,54 +578,38 @@ let last_time = Date.now();
 function update(){
     let delta = (Date.now() - last_time) / 10;
 
+    //update player
     for (let clientId in players){
-        if (players[clientId] && players[clientId].died){ players[clientId] = null; check_players(players);}
-        else if (players[clientId]) {
-            players[clientId].move(players[clientId].direction, delta, map, players);
-            try_shoot(clientId, delta, map);
+        if (players[clientId] && players[clientId].died) {
+
+          players[clientId] = null;
+          check_players(players);
+
+        } else if (players[clientId]) {
+
+          players[clientId].move(players[clientId].direction, delta, map, players, bullets);
+
         }
     }
 
-    try_spawn_pickups(delta * 10, map, pickups);
+    //update bullets
+    update_bullets(bullets, delta, map);
+
+    try_spawn_pickups(delta, map, pickups);
 
     show_fps();
-    last_time = Date.now();
     //emit to all
+    last_time = Date.now();
     io.emit('update', [players, bullets, pickups]);
 }
-
-function try_shoot(clientId, delta, map){ //THIS SHOULD BE A CLASS METHODDDD
-    let tank = players[clientId];
-    
-    if (tank.direction.shoot && tank.cur_bullet_time >= tank.bullet_timeout) {
-        
-        bullets[clientId] = new bullet(tank);
-        tank.cur_bullet_time = 0;
-    }
-    if (tank.cur_bullet_time <= tank.bullet_timeout) {
-        tank.cur_bullet_time += (delta * 10);
-    }
-    
-    let n_bullet = bullets[clientId];
-    //make bullet collidable after some time
-    if (n_bullet && n_bullet.time_since >= n_bullet.collision_activation_time) {
-        bullets[clientId].collidable = true;
-    }
-    //if enough time passed, despawn
-    if (n_bullet && n_bullet.time_since >= n_bullet.BULLET_TIME) {
-        delete bullets[clientId];
-    }
-    if (n_bullet) {
-        n_bullet.time_since += (delta * 10);
-
-        //update bullet
-        n_bullet.move( delta, map);
-    }
+function update_bullets(bullets, delta, map){
+    bullets.forEach( element => {
+        element.move(delta, map);
+    });
 }
 
-
 let cur_pickup_time = 0;
-const PICKUP_SPAWN_TIME = 4000;
+const PICKUP_SPAWN_TIME = 10000; //every 10 seconds
 const MAX_SPAWN_COUNT = 4;
 function try_spawn_pickups(delta, map, pickups){
     if (cur_pickup_time >= PICKUP_SPAWN_TIME) {
@@ -596,11 +618,11 @@ function try_spawn_pickups(delta, map, pickups){
         cur_pickup_time = 0;
     }
     if (pickups.length < MAX_SPAWN_COUNT) {
-        cur_pickup_time += delta;
+        cur_pickup_time += (delta * 10);
     }
 }
 function spawn_pickup(map, pickups){
-    let pickup_types = ['speed', 'firerate', 'piercing', 'laser'];
+    let pickup_types = ['speed', 'firerate', 'pierce']; //, 'laser'];
     let index = Math.floor(Math.random() * pickup_types.length);
     let type = pickup_types[index];
 
@@ -658,7 +680,7 @@ function reset_game(players){
     });
 
     //reset bullets
-    bullets = {};
+    bullets = [];
 
     //reset players
     for (let clientId in players){

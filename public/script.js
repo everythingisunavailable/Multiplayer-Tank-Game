@@ -4,9 +4,22 @@ const canvas = document.getElementById('canvas');
 canvas.width = WIDTH;
 canvas.height = HEIGHT;
 const draw = canvas.getContext('2d');
+let images = {};
 let map_array = null;
+async function init_images(){
+    let pierce = new Image();
+    let speed = new Image();
+    let firerate = new Image();
 
-//players is a dictionary
+    pierce.src = '/assets/piercing.png';
+    speed.src = '/assets/speed.png';
+    firerate.src = '/assets/firerate.png';
+    
+    images['pierce'] = pierce;
+    images['speed'] = speed;
+    images['firerate'] = firerate;
+}
+
 function draw_component(objects){
     draw.clearRect(0, 0, WIDTH, HEIGHT);
     let players = objects[0];
@@ -22,9 +35,9 @@ function draw_component(objects){
         draw.fillRect(segment.x, segment.y, segment.width, segment.height);
     });
 
-    //draw bullets (dictionary)
-    for (let playerId in bullets){
-        let bullet = bullets[playerId];
+    //draw bullets (array)
+    for ( let i = 0; i < bullets.length; i++){
+        let bullet = bullets[i];
         draw.beginPath();
         draw.fillStyle = 'black';
         draw.arc(bullet.x + bullet.size/2, bullet.y + bullet.size/2, bullet.size/2, 0, Math.PI * 2);
@@ -50,14 +63,23 @@ function draw_component(objects){
     }
 
     //draw pickups (array)
+    if (!images) return;
+
     pickups.forEach( element => {
-        //TODO : REMOVE THIS
-        if (element.type == 'speed'){ draw.fillStyle = 'cyan'}
-        else if (element.type == 'firerate'){ draw.fillStyle = 'orange'}
-        else {draw.fillStyle = 'black'};
-        draw.fillRect(element.x, element.y, element.size, element.size);
+        switch (element.type) {
+            case 'speed':
+                draw.drawImage(images.speed, 0, 0, 64, 64, element.x, element.y, element.size, element.size);
+                break;
+            case 'pierce':
+                draw.drawImage(images.pierce, 0, 0, 64, 64, element.x, element.y, element.size, element.size);
+                break;
+            case 'firerate':
+                draw.drawImage(images.firerate, 0, 0, 64, 64, element.x, element.y, element.size, element.size);
+                break;                        
+            default:
+                break;
+        }
     });
-    
 }
 
 
@@ -238,6 +260,7 @@ function deselect_element(element){
     };
 }
 
-window.onload = ()=>{
+window.onload = async function(){
     bind_mobile_controls();
+    await init_images();
 }
