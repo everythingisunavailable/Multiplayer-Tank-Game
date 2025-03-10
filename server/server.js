@@ -682,6 +682,9 @@ function reset_game(players){
     //reset bullets
     bullets = [];
 
+    //reset pickups
+    pickups = [];
+
     //reset players
     for (let clientId in players){
         let color = get_color(clientId);
