@@ -13,11 +13,23 @@ function draw_component(players_and_bullets){
     let bullets = players_and_bullets[1];
     if (!players) {console.log('players is empty');return};
     if (!map_array) {console.log('map is empty');return};
+
+    //draw map
     map_array.forEach(segment =>{
         draw.fillStyle = 'black';
         draw.fillRect(segment.x, segment.y, segment.width, segment.height);
-    })
+    });
 
+    //draw bullets
+    for (let playerId in bullets){
+        let bullet = bullets[playerId];
+        draw.beginPath();
+        draw.fillStyle = 'black';
+        draw.arc(bullet.x + bullet.size/2, bullet.y + bullet.size/2, bullet.size/2, 0, Math.PI * 2);
+        draw.fill();
+    }
+
+    //draw players
     for (let playerId in players){
         let tank = players[playerId];
         if (tank){            
@@ -33,12 +45,6 @@ function draw_component(players_and_bullets){
     
             draw.restore(); //restore to previous        
         };
-    }
-
-    for (let playerId in bullets){
-        let bullet = bullets[playerId];
-        draw.fillStyle = 'black';
-        draw.fillRect(bullet.x, bullet.y, bullet.size, bullet.size);
     }
 }
 

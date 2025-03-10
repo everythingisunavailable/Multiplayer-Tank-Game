@@ -27,7 +27,7 @@ let potential_spawns = [
 let colors = [
     {color: 'red', taken_by: null},
     {color: 'blue', taken_by: null},
-    {color: 'yellow', taken_by: null},
+    {color: 'orange', taken_by: null},
     {color: 'green', taken_by: null},
     {color: 'purple', taken_by: null},
     {color: 'cyan', taken_by: null},
