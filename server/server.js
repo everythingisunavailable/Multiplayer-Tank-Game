@@ -32,6 +32,13 @@ let colors = [
     {color: 'green', taken_by: null},
     {color: 'purple', taken_by: null},
     {color: 'cyan', taken_by: null},
+    {color: 'silver', taken_by: null},
+    {color: 'gray', taken_by: null},
+    {color: 'maroon', taken_by: null},
+    {color: 'fuchsia', taken_by: null},
+    {color: 'navy', taken_by: null},
+    {color: 'teal', taken_by: null},
+    {color: 'aqua', taken_by: null},
 ];
 
 class pickup{
